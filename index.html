@@ -1,0 +1,3693 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FHIR ECG 管理系統</title>
+    
+    <!-- Favicon 圖示 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🏥</text></svg>">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            h1 {
+                font-size: 2em;
+                margin-bottom: 25px;
+            }
+            
+            .card {
+                padding: 20px;
+                border-radius: 16px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .button-group button {
+                min-width: 100%;
+            }
+            
+            canvas {
+                max-width: 100%;
+                height: auto !important;
+            }
+            
+            #ann-stats-content {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5em;
+            }
+            
+            button {
+                font-size: 14px;
+                padding: 10px 18px;
+            }
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255,255,255,0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255,255,255,0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 45px;
+            font-size: 3em;
+            font-weight: 800;
+            text-shadow: 0 5px 15px rgba(0,0,0,0.3), 0 2px 5px rgba(0,0,0,0.2);
+            letter-spacing: 2px;
+            animation: fadeIn 0.8s ease-out;
+            position: relative;
+            padding-bottom: 20px;
+        }
+
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, white, transparent);
+            border-radius: 2px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 
+                0 20px 50px rgba(0,0,0,0.12),
+                0 8px 20px rgba(0,0,0,0.08),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+            animation: fadeIn 0.7s ease-out;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 
+                0 25px 60px rgba(0,0,0,0.15),
+                0 10px 25px rgba(0,0,0,0.1),
+                inset 0 1px 0 rgba(255,255,255,0.9);
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -1000px 0;
+            }
+            100% {
+                background-position: 1000px 0;
+            }
+        }
+
+        /* 新手引導樣式 */
+        .tutorial-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tutorial-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: scaleIn 0.4s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .tutorial-box h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .tutorial-box ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .tutorial-box li {
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 1.05em;
+            line-height: 1.6;
+        }
+
+        .tutorial-box li:last-child {
+            border-bottom: none;
+        }
+
+        .tutorial-box .shortcut {
+            display: inline-block;
+            background: #f0f0f0;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 0 5px;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* 右鍵選單 */
+        .context-menu {
+            position: fixed;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 8px 0;
+            z-index: 10000;
+            min-width: 180px;
+            animation: scaleIn 0.15s ease;
+        }
+
+        .context-menu-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .context-menu-item:hover {
+            background: #f0f0f0;
+        }
+
+        .context-menu-item.danger:hover {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        /* 快捷鍵提示 */
+        .shortcut-hint {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            font-size: 14px;
+            max-width: 300px;
+            animation: slideInRight 0.4s ease;
+        }
+
+        .shortcut-hint h4 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .shortcut-hint p {
+            margin: 5px 0;
+            color: #666;
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid transparent;
+            background: linear-gradient(to right, #667eea 0%, #764ba2 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+            font-weight: 700;
+            font-size: 1.8em;
+        }
+
+        .card h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            animation: slideInLeft 0.5s ease-out;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+            animation: slideInRight 0.5s ease-out;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #444;
+            font-weight: 600;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e8e8e8;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #fafafa;
+        }
+
+        input:hover, select:hover {
+            border-color: #d0d0d0;
+            background: #fff;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+            background: #fff;
+            transform: translateY(-1px);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px 32px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: skewX(-20deg);
+            transition: left 0.5s ease;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        button:active {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.3);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 8px 20px rgba(245, 87, 108, 0.5);
+        }
+
+        #output {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .success {
+            color: #28a745;
+            font-weight: 700;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border-radius: 10px;
+            border-left: 4px solid #28a745;
+            margin: 10px 0;
+            animation: slideInRight 0.5s ease-out;
+        }
+
+        .error {
+            color: #dc3545;
+            font-weight: 700;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            border-radius: 10px;
+            border-left: 4px solid #dc3545;
+            margin: 10px 0;
+            animation: slideInRight 0.5s ease-out;
+        }
+
+        .info {
+            color: #17a2b8;
+            font-weight: 700;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+            border-radius: 10px;
+            border-left: 4px solid #17a2b8;
+            margin: 10px 0;
+            animation: slideInRight 0.5s ease-out;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            padding: 25px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 15px;
+            backdrop-filter: blur(15px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 14px;
+        }
+
+        /* ECG Canvas 樣式 */
+        .ecg-canvas-container {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 24px;
+            padding: 35px;
+            margin: 35px 0;
+            box-shadow: 
+                0 15px 45px rgba(0,0,0,0.08),
+                inset 0 2px 0 rgba(255,255,255,0.95),
+                inset 0 -2px 0 rgba(0,0,0,0.05);
+            border: 2px solid rgba(255,255,255,0.6);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ecg-canvas-container::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            height: 2px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+            background-size: 200% 100%;
+            animation: shimmer 3s linear infinite;
+        }
+
+        canvas {
+            border: 3px solid #667eea;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 
+                0 8px 25px rgba(0,0,0,0.12),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+            display: block;
+            margin: 20px auto;
+            max-width: 100%;
+            transition: transform 0.3s ease;
+        }
+
+        canvas:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 12px 35px rgba(0,0,0,0.15),
+                inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+
+        #progress-container {
+            margin: 30px 0;
+            position: relative;
+            height: 55px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 15px;
+            padding: 12px;
+            box-shadow: 
+                0 4px 15px rgba(0,0,0,0.08),
+                inset 0 2px 4px rgba(0,0,0,0.05);
+            border: 2px solid rgba(102, 126, 234, 0.1);
+        }
+
+        #progress-bar {
+            position: absolute;
+            height: 14px;
+            width: calc(100% - 24px);
+            background: linear-gradient(90deg, #e8e8e8 0%, #f5f5f5 100%);
+            cursor: pointer;
+            border-radius: 8px;
+            top: 20px;
+            left: 12px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #progress-handle {
+            position: absolute;
+            height: 34px;
+            width: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: grab;
+            margin-top: -11px;
+            border-radius: 6px;
+            box-shadow: 
+                0 4px 12px rgba(102, 126, 234, 0.4),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+            transition: all 0.2s ease;
+            border: 2px solid rgba(255,255,255,0.5);
+        }
+
+        #progress-handle:hover {
+            transform: scale(1.15);
+            box-shadow: 
+                0 6px 18px rgba(102, 126, 234, 0.6),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+        }
+
+        #progress-handle:active {
+            cursor: grabbing;
+            transform: scale(1.05);
+        }
+
+        .y-offset-container {
+            background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+            padding: 18px 20px;
+            margin: 15px 0;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+            border: 1px solid #f0f0f0;
+            transition: all 0.3s ease;
+        }
+
+        .y-offset-container:hover {
+            box-shadow: 0 5px 18px rgba(0,0,0,0.12);
+            transform: translateY(-2px);
+        }
+
+        .y-offset-container label {
+            font-weight: 600;
+            color: #333;
+            min-width: 140px;
+        }
+
+        .y-offset-container input[type="range"] {
+            flex: 1;
+            min-width: 300px;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #e0e0e0 0%, #f0f0f0 100%);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .y-offset-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .y-offset-container input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 3px 12px rgba(102, 126, 234, 0.6);
+        }
+
+        .y-offset-container span {
+            min-width: 40px;
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .y-offset-container button {
+            min-width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 0.8em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+        }
+
+        .y-offset-container button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.5);
+        }
+
+        .y-offset-container button.inactive {
+            opacity: 0.4;
+        }
+
+        #buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 25px 0;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .marker-btn {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border: 2px solid #667eea;
+            color: #667eea;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 3px 8px rgba(102, 126, 234, 0.12);
+            min-width: 60px;
+            max-width: 80px;
+            position: relative;
+            overflow: visible;
+            white-space: nowrap;
+        }
+
+        .marker-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(102, 126, 234, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.5s, height 0.5s;
+        }
+
+        .marker-btn:hover::before {
+            width: 150px;
+            height: 150px;
+        }
+
+        .marker-btn:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.35);
+            border-color: transparent;
+        }
+
+        .marker-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 6px 18px rgba(102, 126, 234, 0.5);
+            border-color: transparent;
+            transform: scale(1.05);
+        }
+
+        .query-type-btn {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border: 3px solid #e0e0e0;
+            color: #666;
+            padding: 20px 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 1em;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+            width: 100%;
+        }
+
+        .query-type-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .query-type-btn:hover::before {
+            left: 100%;
+        }
+
+        .query-type-btn:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+            color: #667eea;
+        }
+
+        .query-type-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .query-type-btn.active:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f0f7ff 100%);
+            border-left: 5px solid #2196f3;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.1);
+            border: 1px solid rgba(33, 150, 243, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .button-group button {
+            flex: 1;
+            min-width: 180px;
+            animation: scaleIn 0.5s ease-out;
+            animation-fill-mode: backwards;
+        }
+
+        .button-group button:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .button-group button:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .button-group button:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        #segment {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            padding: 25px;
+            margin: 25px 0;
+            border-radius: 18px;
+            border: 2px solid #e8e8e8;
+            line-height: 2.2;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+            transition: all 0.3s ease;
+        }
+
+        #segment:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        #segment p {
+            margin: 15px 0;
+            font-weight: 500;
+        }
+
+        #ann-statistics {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        #ann-statistics h3 {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        #segment button {
+            width: auto;
+            padding: 8px 16px;
+            margin: 0 5px;
+            font-size: 14px;
+        }
+
+        #segment select {
+            width: auto;
+            padding: 6px 10px;
+            margin: 0 5px;
+            display: inline-block;
+        }
+
+        .upload-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 2px dashed #dee2e6;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #667eea;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+        }
+
+        .upload-section h1 {
+            color: #333;
+            text-align: left;
+            text-shadow: none;
+            margin-bottom: 20px;
+            font-size: 1.6em;
+            animation: none;
+        }
+
+        .upload-section h1::after {
+            display: none;
+        }
+
+        .upload-section p {
+            margin: 15px 0;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .ann-actions button {
+            width: auto;
+            padding: 10px 20px;
+            margin: 0 5px;
+            font-size: 14px;
+        }
+
+        input[type="file"] {
+            padding: 12px;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            background: rgba(102, 126, 234, 0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        input[type="file"]:hover {
+            border-color: #764ba2;
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+
+        /* 載入動畫 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 成功打勾動畫 */
+        .checkmark {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #28a745;
+            position: relative;
+            animation: scaleIn 0.3s ease-out;
+        }
+
+        .checkmark::after {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 3px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2em;
+                margin-bottom: 30px;
+            }
+            
+            .card {
+                padding: 25px;
+                border-radius: 18px;
+            }
+            
+            .button-group button {
+                min-width: 100%;
+            }
+            
+            canvas {
+                width: 100% !important;
+                height: auto !important;
+            }
+            
+            #buttons {
+                gap: 10px;
+            }
+            
+            .marker-btn {
+                min-width: 70px;
+                max-width: 100px;
+                padding: 10px 20px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 快捷功能按鈕組 -->
+    <div style="position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; gap: 10px;">
+        <button onclick="toggleShortcutHint()" style="background: rgba(255,255,255,0.95); border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 16px; transition: all 0.3s ease;" title="快捷鍵提示">
+            ⌨️
+        </button>
+        <button onclick="showTutorial()" style="background: rgba(255,255,255,0.95); border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 16px; transition: all 0.3s ease;" title="新手教學">
+            ❓
+        </button>
+    </div>
+
+    <div class="container">
+        <h1>🏥 FHIR ECG 管理系統</h1>
+
+        <!-- 初始選擇 -->
+        <div class="card section active" id="initial-section">
+            <h2>🏠 歡迎使用 ECG FHIR 系統</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 20px;">請選擇您的操作類型</p>
+            <div class="button-group">
+                <button class="btn-primary" onclick="showNewPatient()">➕ 建立新病患</button>
+                <button class="btn-primary" onclick="showExistingPatient()">👤 使用已有病患</button>
+                <button class="btn-secondary" onclick="showQueryPage()">🔍 查詢資料</button>
+            </div>
+        </div>
+
+        <!-- 已有病患選擇 -->
+        <div class="card section" id="existing-patient-section">
+            <h2>👤 已有病患操作</h2>
+            <div class="form-group">
+                <label for="existing-patient-id">請輸入 Patient ID *</label>
+                <input type="text" id="existing-patient-id" placeholder="例如: 12345">
+            </div>
+            <div class="button-group">
+                <button class="btn-primary" onclick="verifyAndShowOptions()">✓ 驗證並繼續</button>
+                <button class="btn-secondary" onclick="showInitial()">返回</button>
+            </div>
+            <div id="patient-verification" style="display:none; margin-top: 20px;">
+                <div class="info-box">
+                    <h3>✅ 病患資料已驗證</h3>
+                    <div id="patient-info"></div>
+                </div>
+                <h3 style="margin-top: 20px;">請選擇操作：</h3>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="showObservationList()">📋 查看此病患的所有 ECG</button>
+                    <button class="btn-primary" onclick="showECGUpload()">📤 上傳新 ECG</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Observation 列表 -->
+        <div class="card section" id="observation-list-section">
+            <h2>📋 ECG 記錄列表</h2>
+            <div id="observation-list-content">
+                <p class="info">載入中...</p>
+            </div>
+            <div class="button-group" style="margin-top: 20px;">
+                <button class="btn-primary" onclick="showECGUpload()">📤 上傳新 ECG</button>
+                <button class="btn-secondary" onclick="showExistingPatient()">返回</button>
+            </div>
+        </div>
+
+        <!-- 病患資料輸入 -->
+        <div class="card section" id="patient-section">
+            <h2>📝 建立新病患資料</h2>
+            <form id="patientForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="family">姓氏 (Family Name) *</label>
+                        <input type="text" id="family" placeholder="例如: Wang" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="given">名字 (Given Name) *</label>
+                        <input type="text" id="given" placeholder="例如: Xiao Ming" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="gender">性別 (Gender) *</label>
+                        <select id="gender" required>
+                            <option value="">請選擇</option>
+                            <option value="male">男性 (Male)</option>
+                            <option value="female">女性 (Female)</option>
+                            <option value="other">其他 (Other)</option>
+                            <option value="unknown">未知 (Unknown)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="birthDate">生日 (Birth Date) *</label>
+                        <input type="date" id="birthDate" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">電話 (Phone)</label>
+                    <input type="tel" id="phone" placeholder="例如: 0912-345678">
+                </div>
+
+                <div class="button-group">
+                    <button type="submit">🚀 建立並上傳到 FHIR Server</button>
+                    <button type="button" class="btn-secondary" onclick="showInitial()">返回</button>
+                </div>
+            </form>
+            
+            <div id="patient-output" style="display:none; margin-top: 20px;">
+                <h3>建立結果</h3>
+                <div id="output" class="info-box"></div>
+            </div>
+        </div>
+
+        <!-- 查詢頁面 -->
+        <div class="card section" id="query-section">
+            <h2>🔍 查詢資料</h2>
+            <p style="color: #666; margin-bottom: 20px;">可查詢 Patient 或 Observation 資料</p>
+            
+            <!-- 查詢類型選擇 -->
+            <div style="background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%); padding: 25px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border: 2px solid rgba(102, 126, 234, 0.1);">
+                <label style="margin-bottom: 15px; display: block; font-weight: 600; font-size: 1.1em; color: #333;">📂 選擇查詢類型</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <button id="query-type-patient" class="query-type-btn active" onclick="selectQueryType('patient')">
+                        <span style="font-size: 1.5em; display: block; margin-bottom: 5px;">👤</span>
+                        <span style="font-weight: 600; font-size: 1.1em;">Patient</span>
+                        <span style="font-size: 0.85em; opacity: 0.8; display: block; margin-top: 3px;">病患資料</span>
+                    </button>
+                    <button id="query-type-observation" class="query-type-btn" onclick="selectQueryType('observation')">
+                        <span style="font-size: 1.5em; display: block; margin-bottom: 5px;">📊</span>
+                        <span style="font-weight: 600; font-size: 1.1em;">Observation</span>
+                        <span style="font-size: 0.85em; opacity: 0.8; display: block; margin-top: 3px;">檢查記錄</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Patient 查詢 -->
+            <div id="query-patient-area" style="display: block;">
+                <div class="form-group">
+                    <label for="queryPatientId">Patient ID *</label>
+                    <input type="text" id="queryPatientId" placeholder="輸入 Patient ID (例如: 12345)">
+                </div>
+                <button class="btn-primary" onclick="getPatient()">🔎 查詢 Patient 資料</button>
+            </div>
+            
+            <!-- Observation 查詢 -->
+            <div id="query-observation-area" style="display: none;">
+                <div class="form-group">
+                    <label for="queryObservationId">Observation ID *</label>
+                    <input type="text" id="queryObservationId" placeholder="輸入 Observation ID (例如: 67890)">
+                </div>
+                <button class="btn-primary" onclick="getObservation()">🔎 查詢 Observation 資料</button>
+            </div>
+            
+            <div class="button-group" style="margin-top: 20px;">
+                <button class="btn-secondary" onclick="showInitial()">🏠 返回首頁</button>
+            </div>
+            
+            <div id="query-output" style="display:none; margin-top: 20px;">
+                <h3>查詢結果</h3>
+                <div id="query-result" class="info-box"></div>
+            </div>
+        </div>
+
+        <!-- ECG 上傳與查看 -->
+        <div class="card section" id="ecg-section">
+            <!-- 檔案上傳區 -->
+            <div class="upload-section" style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h1 style="color: #333; font-size: 1.8em; margin: 0;">ECG 分析工具</h1>
+                    <button onclick="clearAllECGData()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px rgba(245, 87, 108, 0.3); transition: all 0.3s ease;" title="清空所有已載入的 ECG 資料">
+                        🗑️ 清空資料
+                    </button>
+                </div>
+                <div>
+                    <p style="margin-bottom: 10px;">上傳 ECG 數據 (.txt): 
+                    <input type="file" id="ecg-file" accept=".txt"></p>
+                </div>
+                
+                <div class="ann-actions" style="margin-top: 15px;">
+                    <p>ANN 檔案處理:
+                    <button id="uploadAnnBtn" onclick="uploadANN()">上傳 ANN 檔案</button>
+                    <input type="file" id="ann-file" accept=".ANN.txt" style="display:none">
+                    <button id="predictAnnBtn" onclick="predictANN()">模型預測 ANN</button>
+                    <button id="downloadAnnBtn" onclick="downloadANN()">下載 ANN</button>
+                    </p>
+                </div>
+            </div>
+
+            <!-- ECG Canvas 顯示區 -->
+            <div class="ecg-canvas-container" id="ecg-canvas-area" style="display:none;">
+                <canvas id="dataCanvas" width="1600" height="500"></canvas>
+                <canvas id="zoomCanvas" width="1600" height="150"></canvas>
+                
+                <div id="progress-container">
+                    <div id="progress-bar"></div>
+                    <div id="progress-handle"></div>
+                </div>
+
+                <div id="buttons" style="margin: 15px 0; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+                    <button id="btn1" class="marker-btn">N</button>
+                    <button id="btn2" class="marker-btn">S</button>
+                    <button id="btn3" class="marker-btn">Q</button>
+                    <button id="btn4" class="marker-btn">V</button>
+                    <button id="btn5" class="marker-btn">B</button>
+                    <button id="btnDelete" class="marker-btn">刪除</button>
+                </div>
+
+                <div id="y-offsets">
+                    <div class="y-offset-container">
+                        <label for="lead1-offset">Lead 1 Position:</label>
+                        <input type="range" id="lead1-offset" min="0" max="400" step="20" value="100">
+                        <span id="lead1-offset-value">100</span>
+                        <button id="toggleLead1">✔</button> &emsp; &emsp;
+                    </div>
+                    <div class="y-offset-container">
+                        <label for="lead2-offset">Lead 2 Position:</label>
+                        <input type="range" id="lead2-offset" min="0" max="500" step="20" value="250">
+                        <span id="lead2-offset-value">250</span>
+                        <button id="toggleLead2">✔</button> &emsp; &emsp;
+                    </div>
+                    <div class="y-offset-container">
+                        <label for="lead3-offset">Lead 3 Position:</label>
+                        <input type="range" id="lead3-offset" min="200" max="600" step="20" value="400">
+                        <span id="lead3-offset-value">400</span>
+                        <button id="toggleLead3">✔</button> &emsp;&emsp;
+                    </div>
+                </div>
+
+                <div id="segment">
+                    Segment Marker
+                    <button id="segmentStart" onclick="setSegmentStart()">Start</button>
+                    <button id="segmentEnd" onclick="setSegmentEnd()">End</button>
+                    <button id="segmentClear" onclick="clearSegment()">Clear</button></p>
+                    <p>Modify ANN
+                    <button id="segmentDelete" onclick="deleteSegmentMarkers()">Delete Segment Markers</button></p>
+                    <p>Change Segment Markers
+                    <select id="fromMarker">
+                        <option value="N">N</option>
+                        <option value="S">S</option>
+                        <option value="Q">Q</option>
+                        <option value="V">V</option>
+                        <option value="B">B</option>
+                    </select>
+                    to
+                    <select id="toMarker">
+                        <option value="N">N</option>
+                        <option value="S">S</option>
+                        <option value="Q">Q</option>
+                        <option value="V">V</option>
+                        <option value="B">B</option>
+                    </select>
+                    <button id="changeMarkers" onclick="changeSegmentMarkers()">Change</button></p>
+                </div>
+
+                <!-- ANN 統計顯示 -->
+                <div id="ann-statistics" style="background: white; padding: 20px; margin: 20px 0; border-radius: 10px; border: 2px solid #667eea; display: none;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">📊 ANN 標記統計</h3>
+                    <div id="ann-stats-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- FHIR 資訊輸入 -->
+            <div style="background: #e3f2fd; padding: 15px; border-radius: 10px; margin-top: 20px;">
+                <h3 style="margin-bottom: 10px;">FHIR 資源資訊</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ecg-datetime">ECG 記錄時間 *</label>
+                        <input type="datetime-local" id="ecg-datetime">
+                    </div>
+                    <div class="form-group">
+                        <label for="patient-id-for-ecg">病患 ID (選填)</label>
+                        <input type="text" id="patient-id-for-ecg" placeholder="關聯到特定病患">
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group" style="margin-top: 20px;">
+                <button class="btn-primary" onclick="saveECGToFHIR()">💾 儲存 ECG 到 FHIR</button>
+                <button class="btn-secondary" onclick="showInitial()">🏠 返回首頁</button>
+            </div>
+
+            <div id="ecg-output" style="display:none; margin-top: 20px;">
+                <h3>儲存結果</h3>
+                <div id="ecg-result" class="info-box"></div>
+            </div>
+        </div>
+
+        <!-- FHIR Server 設定 -->
+        <div class="card">
+            <h2>⚙️ FHIR Server 設定</h2>
+            <div class="form-group">
+                <label for="fhir-mode">使用模式</label>
+                <select id="fhir-mode" onchange="changeFHIRMode()" style="margin-bottom: 15px;">
+                    <option value="local">本地開發模式（HTTP）</option>
+                    <option value="github">GitHub Pages 模式（HTTPS）</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="baseUrl">Base URL</label>
+                <input type="text" id="baseUrl" value="http://203.64.84.177:8080/fhir">
+            </div>
+            <p class="info" style="margin-top: 10px; color: #666; font-size: 0.9em;" id="fhir-mode-hint">
+                💡 <strong>提示:</strong> 本地開發模式 - 使用 HTTP 伺服器
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // ========== 全域變數 ==========
+        let ecgData = [[], [], []]; // 三導程 ECG 數據
+        let currentStartIndex = 0;
+        let markers = [];
+        let rr_data = []; // RR interval data
+        let activeButton = -1;
+        let segmentMode = null; // 'start' or 'end' for segment marker selection
+        let canvas, ctx, zoomCanvas, zoomCtx;
+        let progressBar, progressHandle;
+        let leadOffsets = [100, 250, 400];
+        let leadVisibility = [true, true, true];
+        let segmentStartIndex = null;
+        let segmentEndIndex = null;
+        const samplingRate = 256;
+        const visibleGrids = 10;
+        
+        // 事件處理器引用（用於清理）
+        let canvasClickHandler = null;
+        let canvasContextMenuHandler = null;
+        let canvasWheelHandler = null;
+        let documentKeydownHandler = null;
+        let progressMousemoveHandler = null;
+        let progressMouseupHandler = null;
+
+        // ========== 清空所有 ECG 資料的函數 ==========
+        function clearAllECGData() {
+            ecgData = [[], [], []];
+            markers = [];
+            rr_data = [];
+            currentStartIndex = 0;
+            activeButton = -1;
+            segmentMode = null;
+            segmentStartIndex = null;
+            segmentEndIndex = null;
+            zoomLevel = 1.0;
+            zoomCenterIndex = 0;
+            
+            // 清空檔案輸入
+            const ecgFileInput = document.getElementById('ecg-file');
+            const annFileInput = document.getElementById('ann-file');
+            if (ecgFileInput) ecgFileInput.value = '';
+            if (annFileInput) annFileInput.value = '';
+            
+            // 隱藏 Canvas 區域
+            const canvasArea = document.getElementById('ecg-canvas-area');
+            if (canvasArea) canvasArea.style.display = 'none';
+            
+            // 隱藏統計區域
+            const statsArea = document.getElementById('ann-statistics');
+            if (statsArea) statsArea.style.display = 'none';
+            
+            // 取消所有標記按鈕的激活狀態
+            document.querySelectorAll('.marker-btn').forEach(btn => btn.classList.remove('active'));
+            
+            // 清空 Canvas（如果已初始化）
+            if (canvas && ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            if (zoomCanvas && zoomCtx) {
+                zoomCtx.clearRect(0, 0, zoomCanvas.width, zoomCanvas.height);
+                zoomCtx.fillStyle = '#f0f0f0';
+                zoomCtx.fillRect(0, 0, zoomCanvas.width, zoomCanvas.height);
+            }
+            
+            console.log('✅ 所有 ECG 資料已清空');
+        }
+
+        // ========== 頁面切換函數 ==========
+        function hideAllSections() {
+            // 切換頁面時清理事件監聽器，防止記憶體洩漏
+            if (canvas) {
+                cleanupCanvasEvents();
+            }
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        }
+
+        // ========== FHIR 模式切換函數 ==========
+        function changeFHIRMode() {
+            const mode = document.getElementById('fhir-mode').value;
+            const baseUrlInput = document.getElementById('baseUrl');
+            const hint = document.getElementById('fhir-mode-hint');
+            
+            if (mode === 'local') {
+                baseUrlInput.value = 'http://203.64.84.177:8080/fhir';
+                hint.innerHTML = '💡 <strong>提示:</strong> 本地開發模式 - 使用 HTTP 伺服器（直接開啟 HTML 或本地伺服器）';
+            } else if (mode === 'github') {
+                baseUrlInput.value = 'https://server.fire.ly';
+                hint.innerHTML = '💡 <strong>提示:</strong> GitHub Pages 模式 - 使用支援 CORS 的 HTTPS 測試伺服器';
+            }
+        }
+
+        // ========== 頁面載入時自動檢測模式 ==========
+        window.addEventListener('DOMContentLoaded', function() {
+            // 如果是 HTTPS 協議，自動切換到 GitHub 模式
+            if (window.location.protocol === 'https:') {
+                document.getElementById('fhir-mode').value = 'github';
+                changeFHIRMode();
+            }
+        });
+
+        function showInitial() {
+            hideAllSections();
+            clearAllECGData(); // 返回首頁時清空所有資料
+            document.getElementById('initial-section').classList.add('active');
+            
+            // 也清空 Patient ID 輸入
+            document.getElementById('existing-patient-id').value = '';
+            document.getElementById('patient-id-for-ecg').value = '';
+            document.getElementById('patient-verification').style.display = 'none';
+        }
+
+        function showNewPatient() {
+            hideAllSections();
+            clearAllECGData(); // 切換到建立病患頁面時清空資料
+            document.getElementById('patient-section').classList.add('active');
+        }
+
+        function showQueryPatient() {
+            hideAllSections();
+            document.getElementById('query-section').classList.add('active');
+        }
+
+        function showQueryPage() {
+            hideAllSections();
+            clearAllECGData(); // 切換到查詢頁面時清空資料
+            document.getElementById('query-section').classList.add('active');
+            document.getElementById('query-output').style.display = 'none';
+            selectQueryType('patient');
+        }
+
+        function selectQueryType(type) {
+            // 更新按鈕狀態
+            document.getElementById('query-type-patient').classList.toggle('active', type === 'patient');
+            document.getElementById('query-type-observation').classList.toggle('active', type === 'observation');
+            
+            // 切換顯示區域
+            document.getElementById('query-patient-area').style.display = type === 'patient' ? 'block' : 'none';
+            document.getElementById('query-observation-area').style.display = type === 'observation' ? 'block' : 'none';
+            
+            // 清空查詢結果
+            document.getElementById('query-output').style.display = 'none';
+        }
+
+        async function getObservation() {
+            try {
+                const baseUrl = document.getElementById('baseUrl').value.trim();
+                const id = document.getElementById('queryObservationId').value.trim();
+
+                if (!id) {
+                    show('query-result', '❌ 請輸入 Observation ID', 'error');
+                    return;
+                }
+
+                show('query-result', '正在查詢 Observation...', 'info');
+
+                const response = await fetch(`${baseUrl}/Observation/${id}`);
+                
+                let observationData;
+                try {
+                    observationData = await response.json();
+                } catch (jsonError) {
+                    console.error('JSON parsing error:', jsonError);
+                    observationData = { error: 'Invalid JSON response' };
+                }
+                
+                if (!response.ok) {
+                    const resultDiv = document.getElementById('query-result');
+                    
+                    if (response.status === 404) {
+                        resultDiv.innerHTML = `
+                            <h3 style="color: #dc3545;">❌ 查詢失敗</h3>
+                            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 5px;">
+                                <p style="margin: 0; color: #856404;"><strong>Observation ID "${id}" 不存在</strong></p>
+                                <p style="margin: 5px 0 0 0; color: #856404; font-size: 0.9em;">請確認 ID 是否正確</p>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <h3 style="color: #dc3545;">❌ 查詢失敗</h3>
+                            <p><strong>狀態碼：</strong>${response.status}</p>
+                            <pre style="background: #f8f9fa; padding: 10px; border-radius: 5px; overflow: auto;">${JSON.stringify(observationData, null, 2)}</pre>
+                        `;
+                    }
+                    resultDiv.parentElement.style.display = 'block';
+                    return;
+                }
+                
+                const datetime = observationData.effectiveDateTime ? new Date(observationData.effectiveDateTime).toLocaleString('zh-TW') : 'N/A';
+                const patientRef = observationData.subject && observationData.subject.reference ? observationData.subject.reference : 'N/A';
+                const markerCount = observationData.note ? observationData.note.length : 0;
+                const hasECGData = observationData.component && observationData.component.length >= 3;
+                
+                const resultDiv = document.getElementById('query-result');
+                resultDiv.innerHTML = `
+                    <h3 style="color: #28a745;">✅ 查詢成功！</h3>
+                    <table style="width: 100%; margin-top: 15px; border-collapse: collapse;">
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Observation ID:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; color: #667eea; font-weight: bold;">${id}</td></tr>
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>記錄時間:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${datetime}</td></tr>
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>關聯病患:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${patientRef}</td></tr>
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>ANN 標記數量:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${markerCount} 個</td></tr>
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>ECG 數據:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${hasECGData ? '✅ 包含 3 導程數據' : '❌ 無數據'}</td></tr>
+                    </table>
+                    <div style="margin-top: 15px;">
+                        <button onclick="copyToClipboard('${id}')" style="width: auto; padding: 10px 20px; margin: 5px;">📋 複製 ID</button>
+                        ${hasECGData ? `<button onclick="loadObservationById('${id}')" style="width: auto; padding: 10px 20px; margin: 5px;">👁️ 載入並查看 ECG</button>` : ''}
+                    </div>
+                `;
+                resultDiv.parentElement.style.display = 'block';
+                
+            } catch (error) {
+                show('query-result', `❌ 錯誤: ${error.message}`, 'error');
+            }
+        }
+
+        function showECGView() {
+            hideAllSections();
+            document.getElementById('ecg-section').classList.add('active');
+        }
+
+        function showExistingPatient() {
+            hideAllSections();
+            clearAllECGData(); // 切換到已有病患頁面時清空資料
+            document.getElementById('existing-patient-section').classList.add('active');
+            document.getElementById('patient-verification').style.display = 'none';
+        }
+
+        function showObservationList() {
+            hideAllSections();
+            document.getElementById('observation-list-section').classList.add('active');
+            loadObservationsByPatient();
+        }
+
+        function showECGUpload() {
+            hideAllSections();
+            clearAllECGData(); // 切換到 ECG 上傳頁面時清空之前的資料
+            document.getElementById('ecg-section').classList.add('active');
+            
+            // 自動填入已驗證的 Patient ID（如果有）
+            const existingPatientId = document.getElementById('existing-patient-id').value.trim();
+            if (existingPatientId) {
+                document.getElementById('patient-id-for-ecg').value = existingPatientId;
+            }
+        }
+
+        // 複製到剪貼簿
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ 已複製到剪貼簿：' + text);
+            }).catch(err => {
+                alert('❌ 複製失敗：' + err);
+            });
+        }
+
+        // 使用 Patient ID 前往上傳 ECG
+        function usePatientIdForECG(patientId) {
+            document.getElementById('patient-id-for-ecg').value = patientId;
+            showECGView();
+            alert('✅ Patient ID 已自動填入，請上傳 ECG 檔案');
+        }
+
+        // 從查詢結果直接查看病患的 ECG 列表
+        function viewPatientObservations(patientId) {
+            document.getElementById('existing-patient-id').value = patientId;
+            showObservationList();
+        }
+
+        // ========== 顯示訊息 ==========
+        function show(elementId, msg, type = 'info') {
+            const outputDiv = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleString('zh-TW');
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            
+            if (typeof msg === 'object') {
+                outputDiv.innerHTML = `<span class="${className}">[${timestamp}]</span>\n${JSON.stringify(msg, null, 2)}`;
+            } else {
+                outputDiv.innerHTML = `<span class="${className}">[${timestamp}] ${msg}</span>`;
+            }
+            outputDiv.parentElement.style.display = 'block';
+        }
+
+        // ========== Patient 相關函數 ==========
+        function buildPatient() {
+            const family = document.getElementById('family').value.trim();
+            const given = document.getElementById('given').value.trim();
+            const gender = document.getElementById('gender').value;
+            const birthDate = document.getElementById('birthDate').value;
+            const phone = document.getElementById('phone').value.trim();
+
+            // 符合 FHIR R4 Patient 資源格式
+            const patient = {
+                resourceType: 'Patient',
+                meta: {
+                    versionId: '1',
+                    lastUpdated: new Date().toISOString(),
+                    profile: ['http://hl7.org/fhir/StructureDefinition/Patient']
+                },
+                text: {
+                    status: 'generated',
+                    div: `<div xmlns="http://www.w3.org/1999/xhtml"><div class="hapiHeaderText">${given} <b>${family}</b></div><table class="hapiPropertyTable"><tbody><tr><td>Gender</td><td>${gender}</td></tr>${birthDate ? `<tr><td>Birth Date</td><td>${birthDate}</td></tr>` : ''}</tbody></table></div>`
+                },
+                identifier: [{
+                    use: 'official',
+                    system: 'http://hospital.example.org/patients',  // 建議：改為實際的醫院識別系統 URI
+                    value: `PAT-${Date.now()}`
+                }],
+                active: true,
+                name: [{
+                    use: 'official',
+                    family: family,
+                    given: [given],
+                    text: `${given} ${family}`
+                }],
+                gender: gender
+            };
+
+            if (birthDate) {
+                // 確保格式為YYYY-MM-DD
+                patient.birthDate = birthDate;
+            }
+
+            if (phone) {
+                patient.telecom = [{
+                    system: 'phone',
+                    value: phone,
+                    use: 'mobile',
+                    rank: 1
+                }];
+            }
+
+            return patient;
+        }
+
+        async function createPatient() {
+            try {
+                const baseUrl = document.getElementById('baseUrl').value.trim();
+                const patient = buildPatient();
+
+                show('output', '正在建立 Patient 資料...\n' + JSON.stringify(patient, null, 2), 'info');
+
+                const response = await fetch(`${baseUrl}/Patient`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/fhir+json',
+                        'Accept': 'application/fhir+json'
+                    },
+                    body: JSON.stringify(patient),
+                    mode: 'cors',
+                    credentials: 'omit'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const location = response.headers.get('Location');
+                    const id = data.id || (location ? location.split('/').pop() : 'unknown');
+                    
+                    // 只顯示ID，不顯示完整JSON
+                    const outputDiv = document.getElementById('output');
+                    outputDiv.innerHTML = `
+                        <h3 style="color: #28a745;">✅ Patient 建立成功！</h3>
+                        <p style="font-size: 1.2em; margin: 15px 0;">
+                            <strong>Patient ID:</strong> 
+                            <span style="color: #667eea; font-size: 1.3em; font-weight: bold;">${id}</span>
+                        </p>
+                        <button onclick="copyToClipboard('${id}')" style="width: auto; padding: 10px 20px; margin: 5px;">📋 複製 ID</button>
+                        <button onclick="usePatientIdForECG('${id}')" style="width: auto; padding: 10px 20px; margin: 5px;">➡️ 立即上傳 ECG</button>
+                    `;
+                    outputDiv.parentElement.style.display = 'block';
+                    return;
+                } else {
+                    show('output', {
+                        message: '❌ 建立失敗',
+                        status: response.status,
+                        error: data
+                    }, 'error');
+                }
+            } catch (error) {
+                console.error('createPatient 詳細錯誤:', error);
+                
+                const outputDiv = document.getElementById('output');
+                if (!outputDiv) {
+                    console.error('找不到 output 元素');
+                    return;
+                }
+                
+                const isNetworkError = error && (error.message === 'Load failed' || error.message === 'Failed to fetch' || error.name === 'TypeError');
+                
+                if (isNetworkError) {
+                    const baseUrl = document.getElementById('baseUrl').value.trim();
+                    outputDiv.innerHTML = `
+                        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px;">
+                            <h3 style="color: #856404; margin-top: 0;">⚠️ 連線失敗</h3>
+                            <p style="color: #856404; line-height: 1.8; margin: 15px 0;">
+                                無法連接到 FHIR Server。可能的原因：
+                            </p>
+                            
+                            <ul style="color: #856404; line-height: 1.8;">
+                                <li><strong>網路問題：</strong>請檢查網路連線</li>
+                                <li><strong>CORS 限制：</strong>FHIR Server 未正確設定 CORS headers</li>
+                                <li><strong>伺服器問題：</strong>FHIR Server 可能暫時無法使用</li>
+                            </ul>
+                            
+                            <h4 style="color: #856404; margin-top: 20px;">💡 建議：</h4>
+                            <p style="color: #856404; margin: 10px 0;">
+                                ✓ 確認 Base URL 是否正確<br>
+                                ✓ 目前使用：<code style="background: white; padding: 3px 8px; border-radius: 4px;">${baseUrl}</code><br>
+                                ✓ 請確認 FHIR Server 是否正常運作
+                            </p>
+                            
+                            <div style="margin-top: 15px;">
+                                <button onclick="testFHIRConnection()" style="
+                                    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+                                    color: white;
+                                    padding: 12px 24px;
+                                    border: none;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    font-weight: 600;
+                                    box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+                                    width: 100%;
+                                ">
+                                    🔍 測試 FHIR Server 連線
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    outputDiv.innerHTML = `<p class="error">❌ 錯誤: ${error.message}</p>`;
+                }
+                
+                outputDiv.parentElement.style.display = 'block';
+            }
+        }
+
+        async function getPatient() {
+            try {
+                const baseUrl = document.getElementById('baseUrl').value.trim();
+                const id = document.getElementById('queryPatientId').value.trim();
+
+                if (!id) {
+                    show('query-result', '❌ 請輸入 Patient ID', 'error');
+                    return;
+                }
+
+                show('query-result', `正在查詢 Patient ID: ${id}...`, 'info');
+
+                const response = await fetch(`${baseUrl}/Patient/${id}`);
+                
+                let patientData;
+                try {
+                    patientData = await response.json();
+                } catch (jsonError) {
+                    console.error('JSON parsing error:', jsonError);
+                    patientData = { error: 'Invalid JSON response' };
+                }
+                
+                if (!response.ok) {
+                    const resultDiv = document.getElementById('query-result');
+                    
+                    if (response.status === 404) {
+                        resultDiv.innerHTML = `
+                            <h3 style="color: #dc3545;">❌ 查詢失敗</h3>
+                            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; border-radius: 5px;">
+                                <p style="margin: 0; color: #856404;"><strong>Patient ID "${id}" 不存在</strong></p>
+                                <p style="margin: 5px 0 0 0; color: #856404; font-size: 0.9em;">請確認 ID 是否正確，或建立新的 Patient</p>
+                            </div>
+                            <button onclick="showNewPatient()" style="width: auto; padding: 10px 20px; margin: 5px;">➕ 建立新病患</button>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <h3 style="color: #dc3545;">❌ 查詢失敗</h3>
+                            <p><strong>狀態碼：</strong>${response.status}</p>
+                            <pre style="background: #f8f9fa; padding: 10px; border-radius: 5px; overflow: auto;">${JSON.stringify(patientData, null, 2)}</pre>
+                        `;
+                    }
+                    resultDiv.parentElement.style.display = 'block';
+                    return;
+                }
+                
+                // 只顯示關鍵資訊，不顯示完整JSON
+                const name = patientData.name && patientData.name[0] ? `${patientData.name[0].given ? patientData.name[0].given.join(' ') : ''} ${patientData.name[0].family || ''}` : 'N/A';
+                const gender = patientData.gender || 'N/A';
+                const birthDate = patientData.birthDate || 'N/A';
+                const phone = patientData.telecom && patientData.telecom[0] ? patientData.telecom[0].value : 'N/A';
+                
+                const resultDiv = document.getElementById('query-result');
+                resultDiv.innerHTML = `
+                    <h3 style="color: #28a745;">✅ 查詢成功！</h3>
+                    <table style="width: 100%; margin-top: 15px; border-collapse: collapse;">
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Patient ID:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd; color: #667eea; font-weight: bold;">${id}</td></tr>
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>姓名:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${name}</td></tr>
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>性別:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${gender}</td></tr>
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>生日:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${birthDate}</td></tr>
+                        <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>電話:</strong></td>
+                            <td style="padding: 8px; border-bottom: 1px solid #ddd;">${phone}</td></tr>
+                    </table>
+                    <div style="margin-top: 15px;">
+                        <button onclick="usePatientIdForECG('${id}')" style="width: auto; padding: 10px 20px;">➡️ 使用此 ID 上傳 ECG</button>
+                        <button onclick="viewPatientObservations('${id}')" style="width: auto; padding: 10px 20px; margin-left: 5px;">📋 查看此病患的 ECG 列表</button>
+                    </div>
+                `;
+                resultDiv.parentElement.style.display = 'block';
+                return;
+            } catch (error) {
+                show('query-result', `❌ 錯誤: ${error.message}`, 'error');
+            }
+        }
+
+        // ========== FHIR Server 連線測試函數 ==========
+        async function testFHIRConnection() {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const resultDiv = document.getElementById('ecg-result') || document.getElementById('output');
+            
+            if (!resultDiv) {
+                alert('測試中...');
+                return;
+            }
+            
+            resultDiv.innerHTML = '<p class="info">🔍 正在測試 FHIR Server 連線...</p>';
+            resultDiv.parentElement.style.display = 'block';
+            
+            try {
+                const response = await fetch(`${baseUrl}/metadata`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/fhir+json'
+                    },
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div style="background: #d4edda; border-left: 4px solid #28a745; padding: 15px; border-radius: 8px;">
+                            <h3 style="color: #155724; margin-top: 0;">✅ 連線成功！</h3>
+                            <p style="color: #155724; margin: 5px 0;"><strong>FHIR 版本：</strong>${data.fhirVersion || 'Unknown'}</p>
+                            <p style="color: #155724; margin: 5px 0;"><strong>伺服器：</strong>${data.software?.name || 'Unknown'} ${data.software?.version || ''}</p>
+                            <p style="color: #155724; margin: 10px 0 0 0;">✓ FHIR Server 運作正常，您可以嘗試重新執行操作</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; border-radius: 8px;">
+                            <h3 style="color: #721c24; margin-top: 0;">❌ 連線失敗</h3>
+                            <p style="color: #721c24;"><strong>狀態碼：</strong>${response.status}</p>
+                            <p style="color: #721c24;">伺服器回應異常，請檢查 Base URL 是否正確</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; border-radius: 8px;">
+                        <h3 style="color: #721c24; margin-top: 0;">❌ 無法連接</h3>
+                        <p style="color: #721c24;"><strong>錯誤：</strong>${error.message}</p>
+                        <p style="color: #721c24;">可能原因：</p>
+                        <ul style="color: #721c24; margin: 10px 0;">
+                            <li>Base URL 錯誤</li>
+                            <li>FHIR Server 已關閉</li>
+                            <li>網路連線問題</li>
+                            <li>CORS 未正確設定</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
+        // ========== ECG 解析函數 ==========
+        function parseECGText(text) {
+            const lines = text.trim().split('\n');
+            const lead1 = [], lead2 = [], lead3 = [];
+            
+            for (let line of lines) {
+                const values = line.trim().split(/\s+/).map(v => parseFloat(v));
+                if (values.length >= 3) {
+                    lead1.push(values[0]);
+                    lead2.push(values[1]);
+                    lead3.push(values[2]);
+                }
+            }
+            
+            return [lead1, lead2, lead3];
+        }
+
+        // ========== Canvas 繪圖函數 ==========
+        function drawCanvas() {
+            if (!canvas || ecgData[0].length === 0) return;
+            
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, width, height);
+            
+            // 繪製網格 (標準心電圖格式)
+            const smallGrid = 5;  // 小格 1mm
+            const largeGrid = 25; // 大格 5mm
+            
+            // 繪製小網格
+            ctx.strokeStyle = '#ffe0e0';
+            ctx.lineWidth = 0.5;
+            for (let x = 0; x < width; x += smallGrid) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < height; y += smallGrid) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+            
+            // 繪製大網格
+            ctx.strokeStyle = '#ffb0b0';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < width; x += largeGrid) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < height; y += largeGrid) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+            
+            // 繪製 ECG 波形
+            const visibleSamples = samplingRate * visibleGrids;
+            const endIndex = Math.min(currentStartIndex + visibleSamples, ecgData[0].length);
+            const xScale = width / visibleSamples;
+            const yScale = 100;  // Y 軸縮放，與原始模板一致
+            
+            const colors = ['#ff0000', '#00ff00', '#0000ff'];
+            const leadLabels = ['Lead I', 'Lead II', 'Lead III'];
+            
+            for (let lead = 0; lead < 3; lead++) {
+                if (!leadVisibility[lead]) continue;
+                
+                // 繪製導程標籤
+                ctx.fillStyle = colors[lead];
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText(leadLabels[lead], 10, leadOffsets[lead] - 60);
+                
+                // 繪製基線
+                ctx.strokeStyle = colors[lead];
+                ctx.lineWidth = 0.5;
+                ctx.globalAlpha = 0.3;
+                ctx.beginPath();
+                ctx.moveTo(0, leadOffsets[lead]);
+                ctx.lineTo(width, leadOffsets[lead]);
+                ctx.stroke();
+                ctx.globalAlpha = 1.0;
+                
+                // 繪製波形
+                ctx.strokeStyle = colors[lead];
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                
+                for (let i = currentStartIndex; i < endIndex; i++) {
+                    const x = (i - currentStartIndex) * xScale;
+                    const y = leadOffsets[lead] - ecgData[lead][i] * yScale;
+                    
+                    if (i === currentStartIndex) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+            }
+            
+            // 繪製 Segment 標記
+            if (segmentStartIndex !== null && segmentStartIndex >= currentStartIndex && segmentStartIndex < endIndex) {
+                const x = (segmentStartIndex - currentStartIndex) * xScale;
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.fillStyle = '#00ff00';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('START', x + 5, 40);
+            }
+            
+            if (segmentEndIndex !== null && segmentEndIndex >= currentStartIndex && segmentEndIndex < endIndex) {
+                const x = (segmentEndIndex - currentStartIndex) * xScale;
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.fillStyle = '#ff0000';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('END', x + 5, 40);
+            }
+            
+            // 繪製標記（只顯示文字，不顯示圓點）
+            markers.forEach(marker => {
+                if (marker.index >= currentStartIndex && marker.index < endIndex) {
+                    const x = (marker.index - currentStartIndex) * xScale;
+                    
+                    // 根據標記類型設定顏色
+                    let markerColor;
+                    switch(marker.type) {
+                        case 'N': markerColor = '#000000'; break; // 黑色
+                        case 'S': markerColor = '#ff0000'; break; // 紅色
+                        case 'Q': markerColor = '#00bfff'; break; // 淺藍色
+                        case 'V': markerColor = '#9370db'; break; // 紫色
+                        case 'B': markerColor = '#0000ff'; break; // 藍色
+                        default: markerColor = '#000000';
+                    }
+                    
+                    // 只在頂部繪製標記類型文字，不繪製圓點
+                    ctx.fillStyle = markerColor;
+                    ctx.font = 'bold 14px Arial';
+                    ctx.fillText(marker.type, x - 4, 20);
+                }
+            });
+        }
+
+        function calculateRRIntervals() {
+            rr_data = []; // Clear existing RR data
+            const sortedMarkers = [...markers].sort((a, b) => a.index - b.index);
+            
+            for (let i = 0; i < sortedMarkers.length - 1; i++) {
+                const current = sortedMarkers[i];
+                const next = sortedMarkers[i + 1];
+                const rrInterval = next.index - current.index;
+                rr_data.push({ 
+                    start: current.index, 
+                    end: next.index, 
+                    interval: rrInterval 
+                });
+            }
+            
+            console.log('RR Intervals calculated:', rr_data.length);
+            updateANNStatistics();
+            drawZoomCanvas();
+        }
+
+        // ========== ANN 統計功能 ==========
+        function updateANNStatistics() {
+            const statsDiv = document.getElementById('ann-statistics');
+            const contentDiv = document.getElementById('ann-stats-content');
+            
+            if (markers.length === 0) {
+                statsDiv.style.display = 'none';
+                return;
+            }
+            
+            // 統計各類型數量
+            const stats = {};
+            markers.forEach(marker => {
+                stats[marker.type] = (stats[marker.type] || 0) + 1;
+            });
+            
+            const total = markers.length;
+            const markerTypes = ['N', 'S', 'Q', 'V', 'B'];
+            const markerNames = {
+                'N': 'Normal (正常)',
+                'S': 'Supraventricular (室上性)',
+                'Q': 'Unclassified (未分類)',
+                'V': 'Ventricular (心室)',
+                'B': 'Bundle branch block (束支傳導阻滯)'
+            };
+            const markerColors = {
+                'N': '#000000',
+                'S': '#ff0000',
+                'Q': '#00bfff',
+                'V': '#9370db',
+                'B': '#0000ff'
+            };
+            
+            // 生成統計卡片
+            let html = '';
+            markerTypes.forEach(type => {
+                const count = stats[type] || 0;
+                const percentage = total > 0 ? (count / total * 100).toFixed(1) : 0;
+                const color = markerColors[type];
+                
+                // 找到該類型的第一個標記
+                const firstMarker = markers.find(m => m.type === type);
+                const jumpButton = firstMarker ? 
+                    `<button onclick="jumpToMarker(${firstMarker.index})" 
+                            style="margin-top: 8px; padding: 6px 12px; background: ${color}; color: white; 
+                                   border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;
+                                   transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
+                            onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 8px rgba(0,0,0,0.3)';"
+                            onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.2)';">
+                        🎯 跳轉到第一個
+                    </button>` : '';
+                
+                html += `
+                    <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+                                padding: 15px; border-radius: 8px; border-left: 4px solid ${color};
+                                box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                        <div style="font-size: 1.5em; font-weight: bold; color: ${color}; margin-bottom: 5px;">${type}</div>
+                        <div style="font-size: 0.9em; color: #666; margin-bottom: 8px;">${markerNames[type]}</div>
+                        <div style="font-size: 1.8em; font-weight: bold; color: #333;">${count}</div>
+                        <div style="font-size: 0.85em; color: #888;">${percentage}%</div>
+                        ${jumpButton}
+                    </div>
+                `;
+            });
+            
+            // 添加總計
+            html += `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            padding: 15px; border-radius: 8px; color: white;
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                    <div style="font-size: 1.5em; font-weight: bold; margin-bottom: 5px;">總計</div>
+                    <div style="font-size: 0.9em; margin-bottom: 8px;">Total Markers</div>
+                    <div style="font-size: 1.8em; font-weight: bold;">${total}</div>
+                    <div style="font-size: 0.85em; opacity: 0.9;">100%</div>
+                </div>
+            `;
+            
+            contentDiv.innerHTML = html;
+            statsDiv.style.display = 'block';
+            
+            // 添加額外的診斷資訊（Q也算異常）
+            const abnormalCount = (stats['S'] || 0) + (stats['Q'] || 0) + (stats['V'] || 0) + (stats['B'] || 0);
+            const abnormalPercentage = total > 0 ? (abnormalCount / total * 100).toFixed(1) : 0;
+            
+            let diagnosisHtml = '<div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">';
+            diagnosisHtml += '<h4 style="margin: 0 0 10px 0; color: #856404;">📋 診斷參考</h4>';
+            
+            if (abnormalCount === 0) {
+                diagnosisHtml += '<p style="margin: 0; color: #155724; font-weight: bold;">✓ 未檢測到異常心跳</p>';
+            } else {
+                diagnosisHtml += `<p style="margin: 5px 0; color: #856404;"><strong>異常心跳數量：</strong>${abnormalCount} (${abnormalPercentage}%)</p>`;
+                
+                if (stats['V'] && stats['V'] > 0) {
+                    const firstV = markers.find(m => m.type === 'V');
+                    diagnosisHtml += `<p style="margin: 5px 0; color: #721c24;">
+                        ⚠️ <strong>心室性異常 (V)：</strong>${stats['V']} 次 - 建議進一步檢查
+                        ${firstV ? `<button onclick="jumpToMarker(${firstV.index})" style="margin-left: 10px; padding: 4px 10px; background: #9370db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">🎯 查看</button>` : ''}
+                    </p>`;
+                }
+                if (stats['S'] && stats['S'] > 0) {
+                    const firstS = markers.find(m => m.type === 'S');
+                    diagnosisHtml += `<p style="margin: 5px 0; color: #856404;">
+                        ⚠️ <strong>室上性異常 (S)：</strong>${stats['S']} 次
+                        ${firstS ? `<button onclick="jumpToMarker(${firstS.index})" style="margin-left: 10px; padding: 4px 10px; background: #ff0000; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">🎯 查看</button>` : ''}
+                    </p>`;
+                }
+                if (stats['Q'] && stats['Q'] > 0) {
+                    const firstQ = markers.find(m => m.type === 'Q');
+                    diagnosisHtml += `<p style="margin: 5px 0; color: #856404;">
+                        ⚠️ <strong>未分類異常 (Q)：</strong>${stats['Q']} 次 - 需人工判讀
+                        ${firstQ ? `<button onclick="jumpToMarker(${firstQ.index})" style="margin-left: 10px; padding: 4px 10px; background: #00bfff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">🎯 查看</button>` : ''}
+                    </p>`;
+                }
+                if (stats['B'] && stats['B'] > 0) {
+                    const firstB = markers.find(m => m.type === 'B');
+                    diagnosisHtml += `<p style="margin: 5px 0; color: #856404;">
+                        ⚠️ <strong>束支傳導阻滯 (B)：</strong>${stats['B']} 次
+                        ${firstB ? `<button onclick="jumpToMarker(${firstB.index})" style="margin-left: 10px; padding: 4px 10px; background: #0000ff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">🎯 查看</button>` : ''}
+                    </p>`;
+                }
+            }
+            
+            diagnosisHtml += '</div>';
+            contentDiv.innerHTML += diagnosisHtml;
+        }
+
+        // 全域 RR 顯示變數
+        let zoomLevel = 1.0; // 1.0 = 全部顯示
+        let zoomCenterIndex = 0; // 放大中心點
+
+        function drawZoomCanvas() {
+            if (!zoomCanvas) return;
+            
+            const width = zoomCanvas.width;
+            const height = zoomCanvas.height;
+            
+            zoomCtx.fillStyle = '#f0f0f0';
+            zoomCtx.fillRect(0, 0, width, height);
+            
+            if (rr_data.length === 0) return;
+            
+            // 根據放大級別決定顯示範圍
+            let displayRR;
+            if (zoomLevel === 1.0) {
+                // 顯示全部 RR intervals
+                displayRR = rr_data;
+            } else {
+                // 放大模式：顯示以 zoomCenterIndex 為中心的範圍
+                const totalSamples = ecgData[0].length;
+                const zoomedSamples = totalSamples / zoomLevel;
+                const startIdx = Math.max(0, zoomCenterIndex - zoomedSamples / 2);
+                const endIdx = Math.min(totalSamples, zoomCenterIndex + zoomedSamples / 2);
+                
+                displayRR = rr_data.filter(rr => 
+                    rr.start >= startIdx && rr.start < endIdx
+                );
+            }
+            
+            if (displayRR.length === 0) return;
+            
+            // 計算 RR interval 範圍
+            const rrValues = displayRR.map(d => d.interval);
+            const maxRR = Math.max(...rrValues);
+            const minRR = Math.min(...rrValues);
+            const rangeRR = maxRR - minRR || 1;
+            
+            // Y軸縮放：置中顯示
+            const verticalPadding = 20;
+            const availableHeight = height - 2 * verticalPadding;
+            const midY = height / 2;
+            
+            // X軸縮放：根據顯示的範圍
+            let scaleX, offsetX;
+            if (zoomLevel === 1.0) {
+                // 全部顯示：使用所有 ECG 數據的範圍
+                const totalSamples = ecgData[0].length;
+                scaleX = width / totalSamples;
+                offsetX = 0;
+            } else {
+                // 放大顯示
+                const totalSamples = ecgData[0].length;
+                const zoomedSamples = totalSamples / zoomLevel;
+                const startIdx = Math.max(0, zoomCenterIndex - zoomedSamples / 2);
+                scaleX = width / zoomedSamples;
+                offsetX = startIdx;
+            }
+            
+            // 繪製 RR interval 折線圖
+            zoomCtx.strokeStyle = '#667eea';
+            zoomCtx.lineWidth = 2;
+            zoomCtx.beginPath();
+            
+            let isFirstPoint = true;
+            for (let i = 0; i < displayRR.length; i++) {
+                const x = (displayRR[i].start - offsetX) * scaleX;
+                const normalizedY = (displayRR[i].interval - minRR) / rangeRR;
+                const y = midY - (normalizedY - 0.5) * availableHeight;
+                
+                if (isFirstPoint) {
+                    zoomCtx.moveTo(x, y);
+                    isFirstPoint = false;
+                } else {
+                    zoomCtx.lineTo(x, y);
+                }
+            }
+            zoomCtx.stroke();
+            
+            // 顯示放大級別資訊
+            if (zoomLevel > 1.0) {
+                const totalSamples = ecgData[0].length;
+                const currentSamples = totalSamples / zoomLevel;
+                const currentDuration = currentSamples / samplingRate; // 當前顯示的秒數
+                
+                zoomCtx.fillStyle = '#667eea';
+                zoomCtx.font = 'bold 14px Arial';
+                
+                if (currentDuration >= 60) {
+                    zoomCtx.fillText(`顯示範圍: ${Math.round(currentDuration / 60)} 分鐘`, 10, 20);
+                } else {
+                    zoomCtx.fillText(`顯示範圍: ${Math.round(currentDuration)} 秒`, 10, 20);
+                }
+            } else {
+                const totalDuration = ecgData[0].length / samplingRate;
+                zoomCtx.fillStyle = '#666';
+                zoomCtx.font = '12px Arial';
+                
+                if (totalDuration >= 60) {
+                    zoomCtx.fillText(`RR Intervals (全部顯示: ${Math.round(totalDuration / 60)} 分鐘)`, 10, 20);
+                } else {
+                    zoomCtx.fillText(`RR Intervals (全部顯示: ${Math.round(totalDuration)} 秒)`, 10, 20);
+                }
+            }
+            
+            // 顯示 RR 統計資訊
+            zoomCtx.fillStyle = '#666';
+            zoomCtx.font = '11px Arial';
+            zoomCtx.fillText(`Max: ${maxRR.toFixed(0)} | Min: ${minRR.toFixed(0)} | Avg: ${(rrValues.reduce((a,b)=>a+b,0)/rrValues.length).toFixed(0)}`, 10, height - 10);
+        }
+
+        function updateProgressBar() {
+            if (!progressHandle || ecgData[0].length === 0) return;
+            
+            const totalSamples = ecgData[0].length;
+            const position = (currentStartIndex / totalSamples) * 100;
+            progressHandle.style.left = position + '%';
+        }
+
+        // ========== ECG 檔案上傳處理 ==========
+        document.getElementById('ecg-file')?.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                ecgData = parseECGText(event.target.result);
+                currentStartIndex = 0;
+                markers = [];
+                segmentStartIndex = null;
+                segmentEndIndex = null;
+                
+                // 初始化 Canvas
+                canvas = document.getElementById('dataCanvas');
+                ctx = canvas.getContext('2d');
+                zoomCanvas = document.getElementById('zoomCanvas');
+                zoomCtx = zoomCanvas.getContext('2d');
+                progressBar = document.getElementById('progress-bar');
+                progressHandle = document.getElementById('progress-handle');
+                
+                document.getElementById('ecg-canvas-area').style.display = 'block';
+                
+                drawCanvas();
+                drawZoomCanvas();
+                updateProgressBar();
+                setupCanvasEvents();
+                
+                console.log(`ECG 檔案載入成功！共有 ${ecgData[0].length} 個樣本點`);
+            };
+            reader.readAsText(file);
+        });
+
+        // ========== 清理 Canvas 事件 ==========
+        function cleanupCanvasEvents() {
+            if (canvas && canvasClickHandler) {
+                canvas.removeEventListener('click', canvasClickHandler);
+            }
+            if (canvas && canvasContextMenuHandler) {
+                canvas.removeEventListener('contextmenu', canvasContextMenuHandler);
+            }
+            if (canvas && canvasWheelHandler) {
+                canvas.removeEventListener('wheel', canvasWheelHandler);
+            }
+            if (documentKeydownHandler) {
+                document.removeEventListener('keydown', documentKeydownHandler);
+            }
+            if (progressMousemoveHandler) {
+                document.removeEventListener('mousemove', progressMousemoveHandler);
+            }
+            if (progressMouseupHandler) {
+                document.removeEventListener('mouseup', progressMouseupHandler);
+            }
+        }
+
+        // ========== Canvas 事件設定 ==========
+        function setupCanvasEvents() {
+            // 先清理舊的事件監聽器
+            cleanupCanvasEvents();
+            // 標記按鈕 - 使用按鈕 ID 來設定
+            document.getElementById('btn1').onclick = function() {
+                document.querySelectorAll('.marker-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                activeButton = 1;
+            };
+            document.getElementById('btn2').onclick = function() {
+                document.querySelectorAll('.marker-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                activeButton = 2;
+            };
+            document.getElementById('btn3').onclick = function() {
+                document.querySelectorAll('.marker-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                activeButton = 3;
+            };
+            document.getElementById('btn4').onclick = function() {
+                document.querySelectorAll('.marker-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                activeButton = 4;
+            };
+            document.getElementById('btn5').onclick = function() {
+                document.querySelectorAll('.marker-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                activeButton = 5;
+            };
+            document.getElementById('btnDelete').onclick = function() {
+                document.querySelectorAll('.marker-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                activeButton = 6;
+            };
+            
+            // Canvas 點擊添加標記
+            canvasClickHandler = function(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                // 計算 Canvas 內部坐標（考慮顯示縮放）
+                const scaleX = canvas.width / rect.width;
+                const canvasX = clickX * scaleX;
+                const visibleSamples = samplingRate * visibleGrids;
+                const clickIndex = currentStartIndex + Math.round((canvasX / canvas.width) * visibleSamples);
+                
+                // 處理 Segment Marker 設定
+                if (segmentMode === 'start') {
+                    segmentStartIndex = clickIndex;
+                    segmentMode = null;
+                    alert(`✓ Segment Start 設定在樣本 ${clickIndex}`);
+                    drawCanvas();
+                    return;
+                } else if (segmentMode === 'end') {
+                    segmentEndIndex = clickIndex;
+                    segmentMode = null;
+                    alert(`✓ Segment End 設定在樣本 ${clickIndex}`);
+                    drawCanvas();
+                    return;
+                }
+                
+                // 處理標記添加/刪除/修改（智能模式）
+                if (activeButton === -1) return;
+                
+                if (activeButton === 6) { // Delete 按鈕：只刪除
+                    markers = markers.filter(m => Math.abs(m.index - clickIndex) > 5);
+                } else {
+                    // 智能標記邏輯
+                    const markerTypes = ['N', 'S', 'Q', 'V', 'B'];
+                    const newMarkerType = markerTypes[activeButton - 1];
+                    
+                    // 尋找點擊位置附近的現有標記（容差範圍：5個樣本點）
+                    const existingMarkerIndex = markers.findIndex(m => Math.abs(m.index - clickIndex) <= 5);
+                    
+                    if (existingMarkerIndex !== -1) {
+                        // 找到現有標記
+                        const existingMarker = markers[existingMarkerIndex];
+                        
+                        if (existingMarker.type === newMarkerType) {
+                            // 相同類型：刪除
+                            markers.splice(existingMarkerIndex, 1);
+                        } else {
+                            // 不同類型：更改為新類型
+                            markers[existingMarkerIndex].type = newMarkerType;
+                        }
+                    } else {
+                        // 沒有現有標記：新增
+                        markers.push({
+                            index: clickIndex,
+                            type: newMarkerType
+                        });
+                    }
+                }
+                
+                calculateRRIntervals(); // 重新計算 RR intervals（會自動更新統計）
+                drawCanvas();
+            };
+            canvas.addEventListener('click', canvasClickHandler);
+            
+            // 進度條拖動
+            let isDragging = false;
+            progressHandle.onmousedown = () => isDragging = true;
+            
+            progressMouseupHandler = () => isDragging = false;
+            document.addEventListener('mouseup', progressMouseupHandler);
+            
+            progressMousemoveHandler = function(e) {
+                if (!isDragging) return;
+                
+                const rect = progressBar.getBoundingClientRect();
+                let x = e.clientX - rect.left;
+                x = Math.max(0, Math.min(x, rect.width));
+                
+                const percentage = x / rect.width;
+                const totalSamples = ecgData[0].length;
+                currentStartIndex = Math.floor(percentage * totalSamples);
+                currentStartIndex = Math.max(0, Math.min(currentStartIndex, totalSamples - samplingRate * visibleGrids));
+                
+                drawCanvas();
+                syncRRWithECG(); // RR 跟隨 ECG
+                updateProgressBar();
+            };
+            document.addEventListener('mousemove', progressMousemoveHandler);
+            
+            // Lead 位置調整
+            for (let i = 1; i <= 3; i++) {
+                const slider = document.getElementById(`lead${i}-offset`);
+                const valueSpan = document.getElementById(`lead${i}-offset-value`);
+                const toggleBtn = document.getElementById(`toggleLead${i}`);
+                
+                slider.oninput = function() {
+                    leadOffsets[i-1] = parseInt(this.value);
+                    valueSpan.textContent = this.value;
+                    drawCanvas();
+                };
+                
+                toggleBtn.onclick = function() {
+                    leadVisibility[i-1] = !leadVisibility[i-1];
+                    this.classList.toggle('inactive');
+                    drawCanvas();
+                };
+            }
+            
+            // 鍵盤左右方向鍵控制
+            documentKeydownHandler = function(e) {
+                if (ecgData[0].length === 0) return;
+                
+                const totalSamples = ecgData[0].length;
+                const visibleSamples = samplingRate * visibleGrids;
+                const step = Math.floor(visibleSamples * 0.1); // 每次移動 10% 的可見範圍
+                
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    currentStartIndex = Math.max(0, currentStartIndex - step);
+                    drawCanvas();
+                    syncRRWithECG(); // RR 跟隨 ECG
+                    updateProgressBar();
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    currentStartIndex = Math.min(totalSamples - visibleSamples, currentStartIndex + step);
+                    drawCanvas();
+                    syncRRWithECG(); // RR 跟隨 ECG
+                    updateProgressBar();
+                }
+            };
+            document.addEventListener('keydown', documentKeydownHandler);
+            
+            // 滑鼠滾輪控制
+            canvasWheelHandler = function(e) {
+                e.preventDefault();
+                if (ecgData[0].length === 0) return;
+                
+                const totalSamples = ecgData[0].length;
+                const visibleSamples = samplingRate * visibleGrids;
+                const step = Math.floor(visibleSamples * 0.05); // 每次滾動移動 5% 的可見範圍
+                
+                if (e.deltaY < 0) {
+                    // 向上滾：向前移動
+                    currentStartIndex = Math.max(0, currentStartIndex - step);
+                } else {
+                    // 向下滾：向後移動
+                    currentStartIndex = Math.min(totalSamples - visibleSamples, currentStartIndex + step);
+                }
+                
+                drawCanvas();
+                syncRRWithECG(); // RR 跟隨 ECG
+                updateProgressBar();
+            };
+            canvas.addEventListener('wheel', canvasWheelHandler);
+            
+            // RR interval canvas 滑鼠右鍵放大功能
+            zoomCanvas.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (rr_data.length === 0) return;
+                
+                const rect = zoomCanvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const scaleX = zoomCanvas.width / rect.width;
+                const canvasX = clickX * scaleX;
+                
+                // 計算點擊位置對應的 sample index
+                const totalSamples = ecgData[0].length;
+                zoomCenterIndex = Math.floor((canvasX / zoomCanvas.width) * totalSamples);
+                
+                // 放大選項：全部 → 1分鐘 → 30秒 → 10秒 → 全部
+                const totalDuration = totalSamples / samplingRate; // 總秒數
+                const oneMinuteSamples = samplingRate * 60; // 1分鐘的樣本數
+                const thirtySecSamples = samplingRate * 30; // 30秒的樣本數
+                const tenSecSamples = samplingRate * 10; // 10秒的樣本數
+                
+                if (zoomLevel === 1.0) {
+                    // 從全部顯示 → 1分鐘
+                    zoomLevel = totalSamples / oneMinuteSamples;
+                } else {
+                    const currentSamples = totalSamples / zoomLevel;
+                    if (currentSamples > 45 * samplingRate) {
+                        // 當前顯示 > 45秒 → 切換到 30秒
+                        zoomLevel = totalSamples / thirtySecSamples;
+                    } else if (currentSamples > 20 * samplingRate) {
+                        // 當前顯示 > 20秒 → 切換到 10秒
+                        zoomLevel = totalSamples / tenSecSamples;
+                    } else {
+                        // 否則重置為全部顯示
+                        zoomLevel = 1.0;
+                        zoomCenterIndex = 0;
+                    }
+                }
+                
+                // 同步 ECG 顯示位置
+                syncECGWithRR();
+                drawZoomCanvas();
+            });
+            
+            // RR interval canvas 雙擊重置
+            zoomCanvas.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                zoomLevel = 1.0;
+                zoomCenterIndex = 0;
+                syncECGWithRR();
+                drawZoomCanvas();
+            });
+            
+            // RR interval canvas 拖動功能（放大時）
+            let isZoomDragging = false;
+            let zoomDragStartX = 0;
+            let zoomDragStartCenter = 0;
+            
+            zoomCanvas.addEventListener('mousedown', function(e) {
+                if (zoomLevel > 1.0 && e.button === 0) { // 左鍵且處於放大狀態
+                    isZoomDragging = true;
+                    zoomDragStartX = e.clientX;
+                    zoomDragStartCenter = zoomCenterIndex;
+                    zoomCanvas.style.cursor = 'grabbing';
+                }
+            });
+            
+            document.addEventListener('mouseup', function() {
+                if (isZoomDragging) {
+                    isZoomDragging = false;
+                    zoomCanvas.style.cursor = zoomLevel > 1.0 ? 'grab' : 'default';
+                }
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (!isZoomDragging) return;
+                
+                const totalSamples = ecgData[0].length;
+                const zoomedSamples = totalSamples / zoomLevel;
+                const rect = zoomCanvas.getBoundingClientRect();
+                const deltaX = e.clientX - zoomDragStartX;
+                const deltaPercent = deltaX / rect.width;
+                const deltaSamples = Math.floor(deltaPercent * zoomedSamples);
+                
+                // 更新中心位置（注意拖動方向相反）
+                zoomCenterIndex = zoomDragStartCenter - deltaSamples;
+                
+                // 限制範圍
+                const halfZoomedSamples = zoomedSamples / 2;
+                zoomCenterIndex = Math.max(halfZoomedSamples, Math.min(totalSamples - halfZoomedSamples, zoomCenterIndex));
+                
+                // 同步 ECG 顯示位置
+                syncECGWithRR();
+                drawZoomCanvas();
+            });
+            
+            // RR interval canvas 滾輪移動（放大時）
+            zoomCanvas.addEventListener('wheel', function(e) {
+                if (zoomLevel > 1.0) {
+                    e.preventDefault();
+                    
+                    const totalSamples = ecgData[0].length;
+                    const zoomedSamples = totalSamples / zoomLevel;
+                    const step = Math.floor(zoomedSamples * 0.1); // 每次移動 10%
+                    
+                    if (e.deltaY < 0) {
+                        // 向左移動
+                        zoomCenterIndex = Math.max(zoomedSamples / 2, zoomCenterIndex - step);
+                    } else {
+                        // 向右移動
+                        zoomCenterIndex = Math.min(totalSamples - zoomedSamples / 2, zoomCenterIndex + step);
+                    }
+                    
+                    // 同步 ECG 顯示位置
+                    syncECGWithRR();
+                    drawZoomCanvas();
+                }
+            });
+            
+            // 設定游標樣式
+            zoomCanvas.addEventListener('mouseenter', function() {
+                if (zoomLevel > 1.0) {
+                    zoomCanvas.style.cursor = 'grab';
+                } else {
+                    zoomCanvas.style.cursor = 'default';
+                }
+            });
+        }
+
+        // ========== ECG 與 RR 同步功能 ==========
+        function syncECGWithRR() {
+            if (zoomLevel === 1.0 || !ecgData || ecgData[0].length === 0) {
+                // 全部顯示時不同步，保持 ECG 獨立操作
+                return;
+            }
+            
+            // 計算 RR 當前顯示的中心位置
+            // 讓 ECG 的中心對齊 RR 的中心
+            const visibleSamples = samplingRate * visibleGrids; // ECG 可見 10 秒
+            
+            // 設定 ECG 的起始位置，使其中心與 RR 中心對齊
+            currentStartIndex = Math.floor(zoomCenterIndex - visibleSamples / 2);
+            
+            // 限制在有效範圍內
+            const totalSamples = ecgData[0].length;
+            currentStartIndex = Math.max(0, Math.min(currentStartIndex, totalSamples - visibleSamples));
+            
+            // 更新 ECG 顯示
+            drawCanvas();
+            updateProgressBar();
+        }
+
+        // ========== RR 跟隨 ECG 移動 ==========
+        function syncRRWithECG() {
+            if (!ecgData || ecgData[0].length === 0) {
+                return;
+            }
+            
+            // 計算 ECG 當前顯示的中心位置
+            const visibleSamples = samplingRate * visibleGrids; // ECG 可見 10 秒
+            const ecgCenterIndex = currentStartIndex + visibleSamples / 2;
+            
+            // 更新 RR 的中心位置到 ECG 中心
+            zoomCenterIndex = ecgCenterIndex;
+            
+            // 如果 RR 有放大，確保中心位置在有效範圍內
+            if (zoomLevel > 1.0) {
+                const totalSamples = ecgData[0].length;
+                const zoomedSamples = totalSamples / zoomLevel;
+                const halfZoomedSamples = zoomedSamples / 2;
+                zoomCenterIndex = Math.max(halfZoomedSamples, Math.min(totalSamples - halfZoomedSamples, zoomCenterIndex));
+            }
+            
+            // 更新 RR 顯示
+            drawZoomCanvas();
+        }
+
+        // ========== 跳轉到標記位置 ==========
+        function jumpToMarker(markerIndex) {
+            if (!ecgData || ecgData[0].length === 0) {
+                alert('❌ 請先載入 ECG 數據');
+                return;
+            }
+            
+            // 將該標記位置設為 ECG 顯示的中心
+            const visibleSamples = samplingRate * visibleGrids; // 10秒可見範圍
+            currentStartIndex = Math.floor(markerIndex - visibleSamples / 2);
+            
+            // 限制在有效範圍內
+            const totalSamples = ecgData[0].length;
+            currentStartIndex = Math.max(0, Math.min(currentStartIndex, totalSamples - visibleSamples));
+            
+            // 如果 RR 有放大，同步 RR 中心
+            if (zoomLevel > 1.0) {
+                zoomCenterIndex = markerIndex;
+                drawZoomCanvas();
+            }
+            
+            // 更新顯示
+            drawCanvas();
+            updateProgressBar();
+            
+            // 添加視覺提示
+            const timeInSeconds = (markerIndex / samplingRate).toFixed(2);
+            const marker = markers.find(m => m.index === markerIndex);
+            const markerType = marker ? marker.type : '未知';
+            
+            // 滾動到 Canvas 區域
+            document.getElementById('dataCanvas').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // 顯示提示訊息（不使用 alert，改用更友善的方式）
+            showJumpNotification(`已跳轉到標記 ${markerType} (位置: ${markerIndex}, 時間: ${timeInSeconds}s)`);
+        }
+        
+        // 顯示跳轉通知
+        function showJumpNotification(message) {
+            // 移除舊的通知
+            const oldNotification = document.getElementById('jump-notification');
+            if (oldNotification) {
+                oldNotification.remove();
+            }
+            
+            // 創建新通知
+            const notification = document.createElement('div');
+            notification.id = 'jump-notification';
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-size: 14px;
+                font-weight: bold;
+                animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s;
+            `;
+            notification.innerHTML = `🎯 ${message}`;
+            document.body.appendChild(notification);
+            
+            // 3秒後自動移除
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // ========== Segment Marker 功能 ==========
+        function setSegmentStart() {
+            segmentMode = 'start';
+            activeButton = -1; // 取消標記模式
+            alert('✓ 請在 Canvas 上點擊設定 Segment Start 位置');
+        }
+
+        function setSegmentEnd() {
+            segmentMode = 'end';
+            activeButton = -1; // 取消標記模式
+            alert('✓ 請在 Canvas 上點擊設定 Segment End 位置');
+        }
+
+        function clearSegment() {
+            segmentStartIndex = null;
+            segmentEndIndex = null;
+            alert('✓ Segment 標記已清除');
+            drawCanvas();
+        }
+
+        function deleteSegmentMarkers() {
+            if (segmentStartIndex === null || segmentEndIndex === null) {
+                alert('❌ 請先設定 Segment Start 和 End');
+                return;
+            }
+            
+            const start = Math.min(segmentStartIndex, segmentEndIndex);
+            const end = Math.max(segmentStartIndex, segmentEndIndex);
+            
+            markers = markers.filter(m => m.index < start || m.index > end);
+            alert(`✓ 已刪除區間 ${start} - ${end} 的所有標記`);
+            calculateRRIntervals(); // 重新計算 RR intervals
+            drawCanvas();
+        }
+
+        function changeSegmentMarkers() {
+            if (segmentStartIndex === null || segmentEndIndex === null) {
+                alert('❌ 請先設定 Segment Start 和 End');
+                return;
+            }
+            
+            const fromType = document.getElementById('fromMarker').value;
+            const toType = document.getElementById('toMarker').value;
+            const start = Math.min(segmentStartIndex, segmentEndIndex);
+            const end = Math.max(segmentStartIndex, segmentEndIndex);
+            
+            let changeCount = 0;
+            markers.forEach(m => {
+                if (m.index >= start && m.index <= end && m.type === fromType) {
+                    m.type = toType;
+                    changeCount++;
+                }
+            });
+            
+            alert(`✓ 已將 ${changeCount} 個標記從 ${fromType} 改為 ${toType}`);
+            drawCanvas();
+        }
+
+        // ========== ANN 檔案處理函數 ==========
+        function uploadANN() {
+            const annFile = document.getElementById('ann-file');
+            annFile.click();
+        }
+
+        // ANN 檔案上傳處理
+        document.addEventListener('DOMContentLoaded', function() {
+            const annFileInput = document.getElementById('ann-file');
+            if (annFileInput) {
+                annFileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const annText = event.target.result;
+                        parseANNFile(annText);
+                        alert('✅ ANN 檔案已上傳並解析！');
+                    };
+                    reader.readAsText(file);
+                });
+            }
+        });
+
+        function parseANNFile(annText) {
+            // 解析 ANN 檔案格式 (時間(ms) 類型)
+            markers = [];
+            const lines = annText.trim().split('\n');
+            
+            for (let line of lines) {
+                // 忽略註解和空行
+                if (line.startsWith('#') || line.trim() === '') continue;
+                
+                const parts = line.trim().split(/\s+/);
+                if (parts.length >= 2) {
+                    const timeMs = parseFloat(parts[0]);
+                    const markerType = parts[1];
+                    
+                    if (!isNaN(timeMs)) {
+                        // 將時間(ms)轉換為 sample index
+                        const sampleIndex = Math.floor(timeMs / 1000 * samplingRate);
+                        
+                        markers.push({
+                            index: sampleIndex,
+                            type: markerType
+                        });
+                    }
+                }
+            }
+            
+            if (canvas) {
+                calculateRRIntervals(); // 重新計算 RR intervals（會自動更新統計）
+                drawCanvas();
+            }
+        }
+
+        function predictANN() {
+            // 模型預測功能（暫未實作）
+            alert('⚠️ 模型預測功能開發中\n\n此功能需要後端 AI 模型支援，目前僅保留介面按鈕。');
+        }
+
+        function downloadANN() {
+            if (markers.length === 0) {
+                alert('❌ 沒有標記可以下載！\n請先上傳 ECG 檔案並添加標記。');
+                return;
+            }
+            
+            // 生成 ANN 檔案內容 (統一使用時間 ms 格式)
+            let annContent = '# ANN file format: time(ms) marker_type\n';
+            markers.sort((a, b) => a.index - b.index);
+            
+            markers.forEach(marker => {
+                const timeMs = (marker.index / samplingRate * 1000).toFixed(2);
+                annContent += `${timeMs} ${marker.type}\n`;
+            });
+            
+            // 建立下載
+            const blob = new Blob([annContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ecg_${new Date().getTime()}.ANN.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert('✅ ANN 檔案已下載！（格式：時間ms + 標記類型）');
+        }
+
+        // ========== 儲存 ECG 到 FHIR ==========
+        async function saveECGToFHIR() {
+            try {
+                if (ecgData[0].length === 0) {
+                    show('ecg-result', '❌ 請先上傳 ECG 檔案', 'error');
+                    return;
+                }
+                
+                const baseUrl = document.getElementById('baseUrl').value.trim();
+                const datetime = document.getElementById('ecg-datetime').value;
+                const patientId = document.getElementById('patient-id-for-ecg').value.trim();
+                
+                if (!datetime) {
+                    show('ecg-result', '❌ 請選擇 ECG 記錄時間', 'error');
+                    return;
+                }
+                
+                // 建議：根據 FHIR 最佳實踐，Observation 應該關聯到特定 Patient
+                if (!patientId) {
+                    const confirmed = confirm('⚠️ 警告：未指定 Patient ID\n\n根據 FHIR 最佳實踐，Observation 應該關聯到特定病患。\n\n是否繼續建立沒有 Patient 關聯的 Observation？');
+                    if (!confirmed) {
+                        show('ecg-result', 'ℹ️ 操作已取消', 'info');
+                        return;
+                    }
+                }
+                
+                // 建立符合 FHIR R4 標準的 Observation
+                const observation = {
+                    resourceType: 'Observation',
+                    meta: {
+                        profile: ['http://hl7.org/fhir/StructureDefinition/Observation'],
+                        tag: [{
+                            system: 'http://hospital.example.org/ecg-tags',
+                            code: 'ecg-with-annotations',
+                            display: 'ECG with ANN markers'
+                        }]
+                    },
+                    text: {
+                        status: 'generated',
+                        div: `<div xmlns="http://www.w3.org/1999/xhtml"><p><b>ECG Study</b></p><p>Effective: ${new Date(datetime).toLocaleString('zh-TW')}</p>${patientId ? `<p>Patient: ${patientId}</p>` : ''}<p>Components: 3-lead ECG with ${markers.length} annotations</p></div>`
+                    },
+                    identifier: [{
+                        system: 'http://hospital.example.org/observations',  // 建議：改為實際的醫院識別系統 URI
+                        value: `OBS-${Date.now()}`
+                    }],
+                    status: 'final',
+                    category: [{
+                        coding: [{
+                            system: 'http://terminology.hl7.org/CodeSystem/observation-category',
+                            code: 'exam',
+                            display: 'Exam'
+                        }],
+                        text: 'Examination'
+                    }],
+                    code: {
+                        coding: [{
+                            system: 'http://loinc.org',
+                            code: '11524-6',
+                            display: 'EKG study'
+                        }],
+                        text: 'Electrocardiogram Study'
+                    },
+                    effectiveDateTime: new Date(datetime).toISOString(),
+                    issued: new Date().toISOString(),
+                    performer: [{
+                        display: 'ECG Analysis System'
+                    }],
+                    device: {
+                        display: 'Digital ECG Recorder'
+                    },
+                    component: []
+                };
+                
+                // 添加病患參考（FHIR R4 Reference 僅需 reference 欄位）
+                if (patientId) {
+                    observation.subject = {
+                        reference: `Patient/${patientId}`
+                    };
+                }
+                
+                // 添加三個導程數據 (符合 FHIR SampledData 格式)
+                const leadCodes = [
+                    { code: '8889-8', display: 'Lead I' },
+                    { code: '8890-6', display: 'Lead II' },
+                    { code: '8891-4', display: 'Lead III' }
+                ];
+                
+                for (let i = 0; i < 3; i++) {
+                    // 檢查數據長度，FHIR Server可能有大小限制
+                    const dataString = ecgData[i].join(' ');
+                    const maxDataLength = 1000000; // 1MB 限制
+                    
+                    observation.component.push({
+                        code: {
+                            coding: [{
+                                system: 'http://loinc.org',
+                                code: leadCodes[i].code,
+                                display: leadCodes[i].display
+                            }],
+                            text: leadCodes[i].display
+                        },
+                        valueSampledData: {
+                            origin: {
+                                value: 0,
+                                unit: 'mV',
+                                system: 'http://unitsofmeasure.org',
+                                code: 'mV'
+                            },
+                            period: 1000 / samplingRate,  // 毫秒 (period單位固定為ms)
+                            factor: 1,
+                            lowerLimit: -5,
+                            upperLimit: 5,
+                            dimensions: 1,
+                            data: dataString.length > maxDataLength ? 
+                                dataString.substring(0, maxDataLength) + '...[truncated]' : 
+                                dataString
+                        }
+                    });
+                    
+                    // 如果數據被截斷，添加警告
+                    if (dataString.length > maxDataLength) {
+                        console.warn(`Lead ${i+1} data truncated from ${dataString.length} to ${maxDataLength} characters`);
+                    }
+                }
+                
+                // 添加標記 (Annotations) - 符合FHIR Annotation結構
+                if (markers.length > 0) {
+                    observation.note = markers.map(m => ({
+                        authorString: 'ECG Analysis System',
+                        time: new Date().toISOString(),
+                        text: `${m.type} marker at sample ${m.index} (time: ${(m.index / samplingRate).toFixed(2)}s)`
+                    }));
+                    
+                    // 根據標記類型添加interpretation（Q也算異常）
+                    const hasAbnormal = markers.some(m => ['S', 'Q', 'V', 'B'].includes(m.type));
+                    if (hasAbnormal) {
+                        observation.interpretation = [{
+                            coding: [{
+                                system: 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                                code: 'A',
+                                display: 'Abnormal'
+                            }],
+                            text: 'Abnormal rhythm detected'
+                        }];
+                    } else {
+                        observation.interpretation = [{
+                            coding: [{
+                                system: 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation',
+                                code: 'N',
+                                display: 'Normal'
+                            }],
+                            text: 'Normal sinus rhythm'
+                        }];
+                    }
+                }
+                
+                show('ecg-result', '正在上傳 ECG 到 FHIR Server...', 'info');
+                
+                const response = await fetch(`${baseUrl}/Observation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/fhir+json',
+                        'Accept': 'application/fhir+json'
+                    },
+                    body: JSON.stringify(observation),
+                    mode: 'cors',
+                    credentials: 'omit'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const location = response.headers.get('Location');
+                    const id = data.id || (location ? location.split('/').pop() : 'unknown');
+                    
+                    // 只顯示ID，不顯示完整JSON
+                    const resultDiv = document.getElementById('ecg-result');
+                    resultDiv.innerHTML = `
+                        <h3 style="color: #28a745;">✅ ECG 儲存成功！</h3>
+                        <p style="font-size: 1.2em; margin: 15px 0;">
+                            <strong>Observation ID:</strong> 
+                            <span style="color: #667eea; font-size: 1.3em; font-weight: bold;">${id}</span>
+                        </p>
+                        ${patientId ? `<p><strong>關聯 Patient ID:</strong> ${patientId}</p>` : ''}
+                        <button onclick="copyToClipboard('${id}')" style="width: auto; padding: 10px 20px; margin: 5px;">📋 複製 Observation ID</button>
+                        <button onclick="loadObservationById('${id}')" style="width: auto; padding: 10px 20px; margin: 5px;">👁️ 查看此 ECG</button>
+                    `;
+                    resultDiv.parentElement.style.display = 'block';
+                    return;
+                } else {
+                    show('ecg-result', {
+                        message: '❌ 儲存失敗',
+                        status: response.status,
+                        error: data
+                    }, 'error');
+                }
+            } catch (error) {
+                console.error('saveECGToFHIR 詳細錯誤:', error);
+                
+                const resultDiv = document.getElementById('ecg-result');
+                if (!resultDiv) {
+                    console.error('找不到 ecg-result 元素');
+                    return;
+                }
+                
+                const isNetworkError = error && (error.message === 'Load failed' || error.message === 'Failed to fetch' || error.name === 'TypeError');
+                
+                if (isNetworkError) {
+                    const baseUrl = document.getElementById('baseUrl').value.trim();
+                    resultDiv.innerHTML = `
+                        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px;">
+                            <h3 style="color: #856404; margin-top: 0;">⚠️ 連線失敗</h3>
+                            <p style="color: #856404; line-height: 1.8; margin: 15px 0;">
+                                無法連接到 FHIR Server。可能的原因：
+                            </p>
+                            
+                            <ul style="color: #856404; line-height: 1.8;">
+                                <li><strong>網路問題：</strong>請檢查網路連線</li>
+                                <li><strong>CORS 限制：</strong>FHIR Server 未正確設定 CORS headers</li>
+                                <li><strong>伺服器問題：</strong>FHIR Server 可能暫時無法使用</li>
+                            </ul>
+
+                            <h4 style="color: #856404; margin-top: 20px;">💡 建議：</h4>
+                            <p style="color: #856404; margin: 10px 0;">
+                                ✓ 確認 Base URL 是否正確<br>
+                                ✓ 嘗試在瀏覽器直接開啟：<br>
+                                <code style="background: white; padding: 5px; border-radius: 4px; display: inline-block; margin-top: 5px;">${baseUrl}/metadata</code>
+                            </p>
+                            
+                            <div style="margin-top: 15px;">
+                                <button onclick="testFHIRConnection()" style="
+                                    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+                                    color: white;
+                                    padding: 12px 24px;
+                                    border: none;
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    font-weight: 600;
+                                    box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+                                    width: 100%;
+                                ">
+                                    🔍 測試 FHIR Server 連線
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    resultDiv.parentElement.style.display = 'block';
+                } else {
+                    show('ecg-result', `❌ 錯誤: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // ========== Patient 驗證函數 ==========
+        async function verifyAndShowOptions() {
+            const patientId = document.getElementById('existing-patient-id').value.trim();
+            if (!patientId) {
+                alert('❌ 請輸入 Patient ID');
+                return;
+            }
+
+            try {
+                const baseUrl = document.getElementById('baseUrl').value.trim();
+                const response = await fetch(`${baseUrl}/Patient/${patientId}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const name = data.name && data.name[0] ? `${data.name[0].given ? data.name[0].given.join(' ') : ''} ${data.name[0].family || ''}` : 'N/A';
+                    
+                    document.getElementById('patient-info').innerHTML = `
+                        <p><strong>Patient ID:</strong> ${patientId}</p>
+                        <p><strong>姓名:</strong> ${name}</p>
+                        <p><strong>性別:</strong> ${data.gender || 'N/A'}</p>
+                        <p><strong>生日:</strong> ${data.birthDate || 'N/A'}</p>
+                    `;
+                    document.getElementById('patient-verification').style.display = 'block';
+                } else {
+                    alert('❌ Patient ID 不存在，請確認後重試');
+                }
+            } catch (error) {
+                alert('❌ 驗證失敗：' + error.message);
+            }
+        }
+
+        // ========== 載入 Patient 的所有 Observations ==========
+        async function loadObservationsByPatient() {
+            const patientId = document.getElementById('existing-patient-id').value.trim();
+            const contentDiv = document.getElementById('observation-list-content');
+            
+            try {
+                const baseUrl = document.getElementById('baseUrl').value.trim();
+                contentDiv.innerHTML = '<p class="info">🔍 正在查詢此病患的 ECG 記錄...</p>';
+                
+                const response = await fetch(`${baseUrl}/Observation?subject=Patient/${patientId}&code=11524-6`);
+                
+                if (!response.ok) {
+                    contentDiv.innerHTML = '<p class="error">❌ 查詢失敗</p>';
+                    return;
+                }
+                
+                const bundle = await response.json();
+                
+                if (!bundle.entry || bundle.entry.length === 0) {
+                    contentDiv.innerHTML = '<p class="info">📭 此病患尚無 ECG 記錄</p>';
+                    return;
+                }
+                
+                let html = '<table style="width: 100%; border-collapse: collapse;">';
+                html += '<thead><tr style="background: #667eea; color: white;">';
+                html += '<th style="padding: 12px; text-align: left;">Observation ID</th>';
+                html += '<th style="padding: 12px; text-align: left;">記錄時間</th>';
+                html += '<th style="padding: 12px; text-align: left;">標記數量</th>';
+                html += '<th style="padding: 12px; text-align: center;">操作</th>';
+                html += '</tr></thead><tbody>';
+                
+                bundle.entry.forEach(entry => {
+                    const obs = entry.resource;
+                    const obsId = obs.id;
+                    const datetime = obs.effectiveDateTime ? new Date(obs.effectiveDateTime).toLocaleString('zh-TW') : 'N/A';
+                    const markerCount = obs.note ? obs.note.length : 0;
+                    
+                    html += '<tr style="border-bottom: 1px solid #ddd;">';
+                    html += `<td style="padding: 12px; color: #667eea; font-weight: bold;">${obsId}</td>`;
+                    html += `<td style="padding: 12px;">${datetime}</td>`;
+                    html += `<td style="padding: 12px;">${markerCount} 個標記</td>`;
+                    html += `<td style="padding: 12px; text-align: center;">`;
+                    html += `<button onclick="loadObservationById('${obsId}')" style="width: auto; padding: 8px 16px; margin: 2px; font-size: 14px;">👁️ 查看/編輯</button>`;
+                    html += `<button onclick="copyToClipboard('${obsId}')" style="width: auto; padding: 8px 16px; margin: 2px; font-size: 14px;">📋 複製ID</button>`;
+                    html += '</td></tr>';
+                });
+                
+                html += '</tbody></table>';
+                html += `<p style="margin-top: 15px; color: #666;">共找到 ${bundle.entry.length} 筆 ECG 記錄</p>`;
+                contentDiv.innerHTML = html;
+                
+            } catch (error) {
+                contentDiv.innerHTML = `<p class="error">❌ 錯誤：${error.message}</p>`;
+            }
+        }
+
+        // ========== 根據 ID 載入單一 Observation ==========
+        async function loadObservationById(observationId) {
+            try {
+                const baseUrl = document.getElementById('baseUrl').value.trim();
+                const response = await fetch(`${baseUrl}/Observation/${observationId}`);
+                
+                if (!response.ok) {
+                    alert('❌ 無法載入 Observation ID: ' + observationId);
+                    return;
+                }
+                
+                const obs = await response.json();
+                
+                // 解析 ECG 數據
+                if (obs.component && obs.component.length >= 3) {
+                    ecgData = [[], [], []];
+                    
+                    for (let i = 0; i < 3; i++) {
+                        const sampledData = obs.component[i].valueSampledData;
+                        if (sampledData && sampledData.data) {
+                            ecgData[i] = sampledData.data.split(' ').map(v => parseFloat(v));
+                        }
+                    }
+                    
+                    // 解析 ANN 標記
+                    markers = [];
+                    if (obs.note && obs.note.length > 0) {
+                        obs.note.forEach(note => {
+                            const match = note.text.match(/^(\w+) marker at sample (\d+)/);
+                            if (match) {
+                                markers.push({
+                                    type: match[1],
+                                    index: parseInt(match[2])
+                                });
+                            }
+                        });
+                    }
+                    
+                    // 填入相關資訊
+                    if (obs.effectiveDateTime) {
+                        const dt = new Date(obs.effectiveDateTime);
+                        dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+                        document.getElementById('ecg-datetime').value = dt.toISOString().slice(0, 16);
+                    }
+                    
+                    if (obs.subject && obs.subject.reference) {
+                        const patientId = obs.subject.reference.split('/').pop();
+                        document.getElementById('patient-id-for-ecg').value = patientId;
+                    }
+                    
+                    // 顯示 ECG 畫面
+                    showECGView();
+                    
+                    // 初始化 Canvas
+                    currentStartIndex = 0;
+                    canvas = document.getElementById('dataCanvas');
+                    ctx = canvas.getContext('2d');
+                    zoomCanvas = document.getElementById('zoomCanvas');
+                    zoomCtx = zoomCanvas.getContext('2d');
+                    progressBar = document.getElementById('progress-bar');
+                    progressHandle = document.getElementById('progress-handle');
+                    
+                    document.getElementById('ecg-canvas-area').style.display = 'block';
+                    
+                    calculateRRIntervals();
+                    drawCanvas();
+                    drawZoomCanvas();
+                    updateProgressBar();
+                    setupCanvasEvents();
+                    
+                    alert(`✅ 已載入 Observation ID: ${observationId}\n包含 ${ecgData[0].length} 個樣本點和 ${markers.length} 個標記\n\n您可以編輯 ANN 標記後重新儲存`);
+                } else {
+                    alert('❌ 此 Observation 沒有有效的 ECG 數據');
+                }
+                
+            } catch (error) {
+                alert('❌ 載入失敗：' + error.message);
+            }
+        }
+
+        // ========== 表單提交處理 ==========
+        document.getElementById('patientForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            createPatient();
+        });
+
+        // ========== 初始化 ==========
+        // ========== 新手引導系統 ==========
+        function showTutorial() {
+            const overlay = document.createElement('div');
+            overlay.className = 'tutorial-overlay';
+            overlay.innerHTML = `
+                <div class="tutorial-box">
+                    <h2>🎓 歡迎使用 FHIR ECG 管理系統</h2>
+                    <h3 style="margin-top: 20px; color: #333;">📋 快速開始</h3>
+                    <ul>
+                        <li>✅ <strong>步驟 1：</strong>建立新病患或使用已有病患</li>
+                        <li>✅ <strong>步驟 2：</strong>上傳 ECG 檔案（.txt 格式）</li>
+                        <li>✅ <strong>步驟 3：</strong>添加 ANN 標記（N/S/Q/V/B）</li>
+                        <li>✅ <strong>步驟 4：</strong>儲存到 FHIR Server</li>
+                    </ul>
+                    
+                    <h3 style="margin-top: 20px; color: #333;">⌨️ 鍵盤快捷鍵</h3>
+                    <ul>
+                        <li><span class="shortcut">N</span> Normal（正常心跳）</li>
+                        <li><span class="shortcut">S</span> Supraventricular（室上性）</li>
+                        <li><span class="shortcut">Q</span> Unclassified（未分類）</li>
+                        <li><span class="shortcut">V</span> Ventricular（心室性）</li>
+                        <li><span class="shortcut">B</span> Bundle branch block（束支傳導阻滯）</li>
+                        <li><span class="shortcut">Del</span> 刪除模式</li>
+                        <li><span class="shortcut">←</span> <span class="shortcut">→</span> 左右移動 ECG 顯示</li>
+                        <li><span class="shortcut">?</span> 顯示快捷鍵提示</li>
+                    </ul>
+                    
+                    <h3 style="margin-top: 20px; color: #333;">🖱️ 滑鼠操作</h3>
+                    <ul>
+                        <li><strong>左鍵點擊：</strong>添加/修改/刪除標記（智能模式）</li>
+                        <li><strong>右鍵點擊：</strong>開啟快速選單</li>
+                        <li><strong>右鍵 RR 圖：</strong>切換放大級別（1分鐘/30秒/10秒）</li>
+                        <li><strong>拖動 RR 圖：</strong>移動放大視圖</li>
+                    </ul>
+                    
+                    <div style="margin-top: 30px; text-align: center;">
+                        <button onclick="closeTutorial()" style="padding: 12px 30px; font-size: 1.1em; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
+                            開始使用 🚀
+                        </button>
+                        <p style="margin-top: 15px; color: #999; font-size: 0.9em;">
+                            <label><input type="checkbox" id="dontShowAgain" style="margin-right: 5px;"> 不再顯示此教學</label>
+                        </p>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function closeTutorial() {
+            const dontShow = document.getElementById('dontShowAgain').checked;
+            if (dontShow) {
+                localStorage.setItem('hideTutorial', 'true');
+            }
+            document.querySelector('.tutorial-overlay').remove();
+        }
+
+        // ========== 鍵盤快捷鍵系統 ==========
+        let shortcutHintVisible = false;
+
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', function(e) {
+                // 如果在輸入框中，不觸發快捷鍵
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+                    return;
+                }
+
+                const key = e.key.toLowerCase();
+                
+                // 標記類型快捷鍵
+                if (key === 'n') {
+                    e.preventDefault();
+                    document.getElementById('btn1').click();
+                    showKeyHint('已選擇: Normal (N)');
+                } else if (key === 's') {
+                    e.preventDefault();
+                    document.getElementById('btn2').click();
+                    showKeyHint('已選擇: Supraventricular (S)');
+                } else if (key === 'q') {
+                    e.preventDefault();
+                    document.getElementById('btn3').click();
+                    showKeyHint('已選擇: Unclassified (Q)');
+                } else if (key === 'v') {
+                    e.preventDefault();
+                    document.getElementById('btn4').click();
+                    showKeyHint('已選擇: Ventricular (V)');
+                } else if (key === 'b') {
+                    e.preventDefault();
+                    document.getElementById('btn5').click();
+                    showKeyHint('已選擇: Bundle branch block (B)');
+                } else if (key === 'delete' || key === 'backspace') {
+                    if (e.target.tagName !== 'INPUT') {
+                        e.preventDefault();
+                        document.getElementById('btnDelete').click();
+                        showKeyHint('已選擇: 刪除模式');
+                    }
+                } else if (key === '?' || (e.shiftKey && key === '/')) {
+                    e.preventDefault();
+                    toggleShortcutHint();
+                }
+            });
+        }
+
+        function showKeyHint(message) {
+            // 移除舊提示
+            const oldHint = document.getElementById('key-hint-notification');
+            if (oldHint) oldHint.remove();
+
+            // 創建新提示
+            const hint = document.createElement('div');
+            hint.id = 'key-hint-notification';
+            hint.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+                z-index: 10000;
+                font-size: 14px;
+                font-weight: 600;
+                animation: slideInRight 0.3s ease, fadeOut 0.3s ease 1.7s;
+            `;
+            hint.textContent = message;
+            document.body.appendChild(hint);
+
+            setTimeout(() => hint.remove(), 2000);
+        }
+
+        function toggleShortcutHint() {
+            let hint = document.getElementById('shortcut-hint-box');
+            
+            if (hint) {
+                hint.remove();
+                shortcutHintVisible = false;
+            } else {
+                hint = document.createElement('div');
+                hint.id = 'shortcut-hint-box';
+                hint.className = 'shortcut-hint';
+                hint.innerHTML = `
+                    <h4>⌨️ 鍵盤快捷鍵</h4>
+                    <p><strong>N/S/Q/V/B</strong> - 選擇標記類型</p>
+                    <p><strong>Del</strong> - 刪除模式</p>
+                    <p><strong>← →</strong> - 移動 ECG</p>
+                    <p><strong>?</strong> - 顯示/隱藏此提示</p>
+                    <p style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; color: #999; font-size: 0.85em;">點擊任意處關閉</p>
+                `;
+                document.body.appendChild(hint);
+                shortcutHintVisible = true;
+
+                // 點擊關閉
+                hint.addEventListener('click', () => {
+                    hint.remove();
+                    shortcutHintVisible = false;
+                });
+            }
+        }
+
+        // ========== 右鍵選單系統 ==========
+        let contextMenu = null;
+        let contextMenuMarkerIndex = null;
+
+        function setupContextMenu() {
+            // 在 Canvas 上右鍵
+            const canvas = document.getElementById('dataCanvas');
+            if (canvas) {
+                canvas.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    
+                    const rect = canvas.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const scaleX = canvas.width / rect.width;
+                    const canvasX = clickX * scaleX;
+                    const visibleSamples = samplingRate * visibleGrids;
+                    const clickIndex = currentStartIndex + Math.round((canvasX / canvas.width) * visibleSamples);
+                    
+                    // 檢查是否點擊在標記上
+                    const nearbyMarker = markers.find(m => Math.abs(m.index - clickIndex) <= 5);
+                    
+                    if (nearbyMarker) {
+                        showContextMenu(e.clientX, e.clientY, nearbyMarker, clickIndex);
+                    } else {
+                        showContextMenu(e.clientX, e.clientY, null, clickIndex);
+                    }
+                });
+            }
+
+            // 點擊其他地方關閉選單
+            document.addEventListener('click', function() {
+                if (contextMenu) {
+                    contextMenu.remove();
+                    contextMenu = null;
+                }
+            });
+        }
+
+        function showContextMenu(x, y, marker, clickIndex) {
+            // 移除舊選單
+            if (contextMenu) contextMenu.remove();
+
+            contextMenu = document.createElement('div');
+            contextMenu.className = 'context-menu';
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+
+            if (marker) {
+                // 有標記：顯示修改和刪除選項
+                contextMenu.innerHTML = `
+                    <div class="context-menu-item" onclick="changeMarkerType(${marker.index}, 'N')">📌 改為 Normal (N)</div>
+                    <div class="context-menu-item" onclick="changeMarkerType(${marker.index}, 'S')">📌 改為 Supraventricular (S)</div>
+                    <div class="context-menu-item" onclick="changeMarkerType(${marker.index}, 'Q')">📌 改為 Unclassified (Q)</div>
+                    <div class="context-menu-item" onclick="changeMarkerType(${marker.index}, 'V')">📌 改為 Ventricular (V)</div>
+                    <div class="context-menu-item" onclick="changeMarkerType(${marker.index}, 'B')">📌 改為 Bundle branch block (B)</div>
+                    <div class="context-menu-item danger" onclick="deleteMarkerAt(${marker.index})">🗑️ 刪除標記</div>
+                `;
+            } else {
+                // 無標記：顯示新增選項
+                contextMenu.innerHTML = `
+                    <div class="context-menu-item" onclick="addMarkerAt(${clickIndex}, 'N')">➕ 新增 Normal (N)</div>
+                    <div class="context-menu-item" onclick="addMarkerAt(${clickIndex}, 'S')">➕ 新增 Supraventricular (S)</div>
+                    <div class="context-menu-item" onclick="addMarkerAt(${clickIndex}, 'Q')">➕ 新增 Unclassified (Q)</div>
+                    <div class="context-menu-item" onclick="addMarkerAt(${clickIndex}, 'V')">➕ 新增 Ventricular (V)</div>
+                    <div class="context-menu-item" onclick="addMarkerAt(${clickIndex}, 'B')">➕ 新增 Bundle branch block (B)</div>
+                `;
+            }
+
+            document.body.appendChild(contextMenu);
+        }
+
+        function changeMarkerType(markerIndex, newType) {
+            const marker = markers.find(m => m.index === markerIndex);
+            if (marker) {
+                marker.type = newType;
+                calculateRRIntervals();
+                drawCanvas();
+            }
+            if (contextMenu) contextMenu.remove();
+        }
+
+        function deleteMarkerAt(markerIndex) {
+            markers = markers.filter(m => m.index !== markerIndex);
+            calculateRRIntervals();
+            drawCanvas();
+            if (contextMenu) contextMenu.remove();
+        }
+
+        function addMarkerAt(clickIndex, type) {
+            markers.push({ index: clickIndex, type: type });
+            calculateRRIntervals();
+            drawCanvas();
+            if (contextMenu) contextMenu.remove();
+        }
+
+        window.onload = function() {
+            // 設定日期時間默認值為現在
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('ecg-datetime').value = now.toISOString().slice(0, 16);
+
+            // 初始化鍵盤快捷鍵
+            setupKeyboardShortcuts();
+
+            // 初始化右鍵選單
+            setupContextMenu();
+
+            // 檢查是否顯示新手引導
+            const hideTutorial = localStorage.getItem('hideTutorial');
+            if (!hideTutorial) {
+                setTimeout(showTutorial, 500);
+            }
+        };
+    </script>
+</body>
+</html>
